@@ -1,0 +1,20 @@
+{
+    "name": "com.openugd.corelib.widgets",
+    "rootNamespace": "OpenUGD",
+    "references": [
+        "com.openugd.corelib",
+        "com.openugd.lifetime",
+        "com.openugd.signal",
+        "com.openugd.dependency.injection",
+        "Unity.TextMeshPro"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -1,7 +1,7 @@
 {
     "name": "com.openugd.corelib.widgets",
     "displayName": "CoreLib Widgets",
-    "version": "0.1.2",
+    "version": "0.1.3",
     "unity": "2021.3",
     "author": "https://github.com/openugd",
     "description": "require .NET 4x\n",
@@ -10,7 +10,7 @@
         "widgets"
     ],
     "dependencies": {
-        "com.openugd.corelib": "0.1.2"
+        "com.openugd.corelib": "0.1.3"
     },
     "category": "Unity"
 }

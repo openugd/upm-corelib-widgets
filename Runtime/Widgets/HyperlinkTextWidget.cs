@@ -1,9 +1,6 @@
-using OpenUGD;
-using OpenUGD.Core;
-using OpenUGD.Core.Widgets;
 using OpenUGD.UI;
 
-namespace Framework.Runtime.Core.Widgets
+namespace OpenUGD.Core.Widgets
 {
     public class HyperlinkTextWidget : Widget<HyperlinkText, string>
     {
@@ -27,7 +24,7 @@ namespace Framework.Runtime.Core.Widgets
         }
     }
 
-    public static class TMPWidgetExtensions
+    public static class HyperlinkWidgetExtensions
     {
         public static HyperlinkTextWidget AddHyperlinkText(this Widget parent, HyperlinkText view, string text)
         {

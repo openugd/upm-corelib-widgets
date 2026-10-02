@@ -34,5 +34,12 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/openugd/upm-corelib-widgets.git"
-  }
+  },
+  "samples": [
+    {
+      "displayName": "Keyboard Shortcuts",
+      "description": "The replacement for AddKeyboard, removed in 2.0.0: a short helper you copy into your project that calls back when a key goes down for as long as a presenter is open, and never after it closes. It reads the Input System when it is enabled and installed, otherwise the Input Manager, and otherwise does nothing.",
+      "path": "Samples~/KeyboardShortcuts"
+    }
+  ]
 }

@@ -145,6 +145,29 @@ There are no `[Obsolete]` shims. At this boundary the base class, the lifecycle 
 DI layer change together, so the code will not compile regardless; a rename table is worth more than
 19 forwarding classes. See [CHANGELOG.md](CHANGELOG.md) for the lifecycle changes.
 
+### Upgrading from `AddKeyboard`
+
+`AddKeyboard` (`KeyboardWidgetExtensions` in 0.5.0) is removed, and nothing in the package replaces it.
+It was not a presenter: it had no view and no handle to stop it, and it could run its callbacks once more
+on the frame after its presenter closed. It also read `UnityEngine.Input`, which throws when Active Input
+Handling is set to the Input System package alone.
+
+Import the **Keyboard Shortcuts** sample from this package's *Samples* tab in the Package Manager. It
+contains `SubscribeOnKeyDown`, a helper of about 25 lines that you copy into your project. It reads the
+Input System when that is enabled and installed, falls back to the Input Manager, does nothing when
+neither is available, and never fires after its presenter closes:
+
+```csharp
+// 0.5.0
+this.AddKeyboard(KeyCode.LeftArrow, onKeyDown: () => controller.Input.Left());
+
+// 2.0.0, with the sample, and [Inject] private ICoroutineProvider _coroutines; on the presenter
+this.SubscribeOnKeyDown(_coroutines, KeyCode.LeftArrow, () => controller.Input.Left());
+```
+
+The sample's README covers `onKey` and `onKeyUp`, which it does not include, and the keys whose names
+differ between `KeyCode` and the Input System's `Key`.
+
 ## Requirements
 
 - Unity 2022.3 or newer

@@ -20,6 +20,18 @@ The package ID `com.openugd.corelib.widgets` is **unchanged** and will not chang
 these presenters bind to — Unity's widgets — while the types name what they are. No `manifest.json`
 edit is needed beyond the version.
 
+### Added
+
+- The **Keyboard Shortcuts** sample (`Samples~/KeyboardShortcuts`, listed under `samples` in
+  `package.json`), which replaces the removed `AddKeyboard`. It is a recipe you copy into your project,
+  not an API: `SubscribeOnKeyDown(presenter, coroutines, key, onKeyDown)`, about 25 lines, plus an
+  example presenter. It reads the Input System when `ENABLE_INPUT_SYSTEM` is defined *and*
+  `com.unity.inputsystem` is installed (an `OPENUGD_INPUT_SYSTEM_PACKAGE` symbol from the sample asmdef's
+  `versionDefines`, because `ENABLE_INPUT_SYSTEM` alone is defined without the package), otherwise the
+  Input Manager under `ENABLE_LEGACY_INPUT_MANAGER`, and otherwise starts nothing. It stops its coroutine
+  when the presenter's `Lifetime` terminates and re-checks that lifetime after every frame's wait, so it
+  never fires after the presenter has closed.
+
 ### Changed
 
 - **Breaking: every type renamed.** `Widget` -> `Presenter` throughout, including the generic arities
@@ -56,6 +68,17 @@ edit is needed beyond the version.
 - No `[Obsolete]` forwarding types are provided for the old names. At this boundary the base class,
   the lifecycle hooks and the whole DI layer change together, so affected code cannot compile
   regardless; the rename table in the README is worth more than 19 shim classes.
+- **Breaking: `AddKeyboard` is removed, with no replacement in the package** (WG-12, UH-19). It was
+  `KeyboardWidgetExtensions.AddKeyboard` in 0.5.0 and `KeyboardPresenterExtensions` in
+  `Runtime/Presenters/KeyboardPresenter.cs` during the rename. It was not a presenter: it had no view and
+  no handle to stop it early. It could fire after close: the loop tested the presenter's `Lifetime`
+  before its one-frame wait and read the key after it, so one more round of callbacks could run on the
+  frame after the presenter closed. And it read only `UnityEngine.Input`, which throws
+  `InvalidOperationException` when Active Input Handling is set to the Input System package alone, so
+  under that setting the poll died on its first frame. Reading both backends correctly takes three
+  compile-time branches, a `KeyCode`-to-`Key` mapping and tests in each configuration, which is an input
+  library's job rather than a UI presenter's. Use the **Keyboard Shortcuts** sample instead; the README's
+  *Upgrading from `AddKeyboard`* section shows the call-site change.
 
 
 ### Changed

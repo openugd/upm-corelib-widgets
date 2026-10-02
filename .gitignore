@@ -1,1 +1,29 @@
 .DS_Store
+
+# Unity / IDE
+.idea/
+.vs/
+.vscode/
+*.csproj
+*.sln
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.suo
+
+# Build output
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]serSettings/
+*.apk
+*.aab
+*.unitypackage
+
+# OS
+Thumbs.db

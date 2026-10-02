@@ -1,16 +1,36 @@
 {
-    "name": "com.openugd.corelib.widgets",
-    "displayName": "CoreLib Widgets",
-    "version": "0.5.0",
-    "unity": "2021.3",
-    "author": "https://github.com/openugd",
-    "description": "require .NET 4x\n",
-    "keywords": [
-        "corelib",
-        "widgets"
-    ],
-    "dependencies": {
-        "com.openugd.corelib": "0.5.0"
-    },
-    "category": "Unity"
+  "name": "com.openugd.corelib.widgets",
+  "displayName": "CoreLib uGUI Presenters",
+  "version": "2.0.0",
+  "license": "Apache-2.0",
+  "unity": "2022.3",
+  "unityRelease": "0f1",
+  "author": {
+    "name": "Mykola Dorofii",
+    "email": "dorofiy.kolya@gmail.com",
+    "url": "https://github.com/openugd"
+  },
+  "description": "Presenters that bind Unity uGUI widgets (Button, Text, Image, RawImage, Slider, Toggle, TMP_Text, TMP_InputField) to a model. Each presenter is handed a view it does not create, wires the Unity event callbacks when that view is attached, renders the model in an idempotent OnRefresh, and unsubscribes automatically when its Lifetime terminates. TextMeshPro text and input-field presenters are included, along with hyperlink text, gesture detection and resource-prefab presenters.",
+  "keywords": [
+    "corelib",
+    "presenters",
+    "mvp",
+    "ui",
+    "ugui",
+    "unity-ui",
+    "textmeshpro",
+    "openugd"
+  ],
+  "dependencies": {
+    "com.openugd.corelib": "2.0.0",
+    "com.unity.ugui": "1.0.0",
+    "com.unity.textmeshpro": "3.0.6"
+  },
+  "licensesUrl": "https://github.com/openugd/upm-corelib-widgets/blob/master/LICENSE.md",
+  "documentationUrl": "https://github.com/openugd/upm-corelib-widgets",
+  "changelogUrl": "https://github.com/openugd/upm-corelib-widgets/blob/master/CHANGELOG.md",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/openugd/upm-corelib-widgets.git"
+  }
 }

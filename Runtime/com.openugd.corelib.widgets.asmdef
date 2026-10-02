@@ -3,9 +3,9 @@
     "rootNamespace": "OpenUGD",
     "references": [
         "com.openugd.corelib",
+        "com.openugd.context",
         "com.openugd.lifetime",
         "com.openugd.signal",
-        "com.openugd.dependency.injection",
         "Unity.TextMeshPro"
     ],
     "includePlatforms": [],

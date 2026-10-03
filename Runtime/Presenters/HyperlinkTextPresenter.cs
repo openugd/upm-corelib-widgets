@@ -15,8 +15,11 @@ namespace OpenUGD.Presenters
     /// change. A translation therefore carries its own <c>&lt;link&gt;</c> tags.
     /// </para>
     /// <para>
-    /// <b>The view's <see cref="HyperlinkText.Text"/> must be assigned.</b> Rendering writes through it, so
-    /// an unwired prefab fails with a <see cref="System.NullReferenceException"/> on the first render.
+    /// <b>The label.</b> Rendering writes into the view's <see cref="HyperlinkText.Text"/>, which is filled in
+    /// with the <see cref="TMPro.TMP_Text"/> on the view's GameObject if it is empty — so an unwired prefab
+    /// renders, where it used to fail with a <see cref="System.NullReferenceException"/> (audit WG-11). A view
+    /// with no <see cref="TMPro.TMP_Text"/> at all fails the render with an
+    /// <see cref="System.InvalidOperationException"/> that names it.
     /// </para>
     /// <para>
     /// <i>Changed in 2.0.0</i> — the model is a <see cref="TextModel"/> instead of a <c>string</c> (a
@@ -38,7 +41,16 @@ namespace OpenUGD.Presenters
         /// <summary>
         /// Writes <see cref="TextModel.Resolve"/> of the model into the view's label. Idempotent.
         /// </summary>
-        protected override void OnRefresh() => View.Text.text = Model.Resolve(_localization);
+        protected override void OnRefresh()
+        {
+            var label = View.ResolveText();
+            if (label == null)
+                throw new System.InvalidOperationException(
+                    $"{nameof(HyperlinkTextPresenter)}: the HyperlinkText on '{View.name}' has no TMP_Text to " +
+                    "render into. Add a TextMeshPro label to that GameObject, or assign HyperlinkText.Text.");
+
+            label.text = Model.Resolve(_localization);
+        }
     }
 
     /// <summary>

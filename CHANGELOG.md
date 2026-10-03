@@ -31,6 +31,10 @@ Almost everything below is breaking. Each breaking entry ends with the change to
   `InvalidOperationException`. They replace the hand-written subscribe methods (see *Removed*).
 - **`TextModel.Resolve(ILocalization)`**: the one rule `TextPresenter`, `TMPPresenter` and
   `HyperlinkTextPresenter` render by. It is public so a presenter of your own can render text the same way.
+- **`HyperlinkText.LinkClicked`, `HyperlinkText.OpenUrls` and `HyperlinkClick`** (audit WG-11): a click on a
+  link is reported first, with a `HyperlinkClick` a handler can mark `Handled` to keep the link from being
+  opened, and the serialized `OpenUrls` (default `true`) turns opening off altogether. Two `protected virtual`
+  seams for subclasses: `FindLinkId` (the hit test) and `OpenUrl` (`Application.OpenURL` by default).
 - **The Keyboard Shortcuts sample** (`Samples~/KeyboardShortcuts`, listed under `samples` in
   `package.json`), which replaces the removed `AddKeyboard`. It is a recipe you copy into your project,
   not an API: `SubscribeOnKeyDown(presenter, coroutines, key, onKeyDown)`, about 25 lines, plus an
@@ -194,6 +198,14 @@ Almost everything below is breaking. Each breaking entry ends with the change to
   position. A press that swiped also raised `OnTap` when released near the point where the swipe fired; a
   press now reports at most one gesture, and a tap must stay within the threshold throughout. A release past
   the threshold that no move event reported counts as a swipe.
+- **`HyperlinkText` hit-tests with the press camera** (audit WG-11). It passed no camera to
+  `TMP_TextUtilities.FindIntersectingLink`, so under a camera-space or world-space canvas clicks did not line
+  up with the links; it uses `PointerEventData.pressEventCamera`. Every link id was handed to
+  `Application.OpenURL` before anything could see it; `LinkClicked` now runs first and can refuse it (see
+  *Added*), and `HyperlinkOpenEvent` reports only links that were actually opened. An unassigned `Text` threw
+  `NullReferenceException` on the first click, and `HyperlinkTextPresenter` on its first render; `Text` is
+  now filled in with the `TMP_Text` on the same GameObject when the component is added in the editor and
+  whenever a click or a render finds it empty.
 - **A `UIGestureDetector` that is never activated leaves nothing behind** (audit WG-10). Reading a signal
   created a scope nested in `Lifetime.Eternal` that only `OnDestroy` ended, and Unity never sends `OnDestroy`
   to an object that was never active, so binding a presenter to a detector on a panel that was never shown

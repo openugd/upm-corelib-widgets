@@ -155,7 +155,8 @@ on. Also in the package:
 | `TMPPresenterIntervalUpdateExtensions` | `OpenUGD.Presenters` | `label.WithIntervalUpdate(coroutines, scope => text[, interval])` sets a `TMPPresenter`'s model on a timer until the presenter closes or the callback disposes its scope. |
 | `UnityEventExtensions` | `OpenUGD` | `unityEvent.Subscribe(lifetime, listener)` for `UnityEvent` through `UnityEvent<T0, T1, T2, T3>`: adds the listener and removes it when the lifetime ends. The button, toggle, slider and input field presenters wire their views with it. |
 | `ButtonExtensions` | `OpenUGD` | `button.SubscribeOnClick(lifetime, listener)`, the same for a button no presenter drives. |
-| `HyperlinkText`, `UIGestureDetector` | `OpenUGD.UI` | `MonoBehaviour` components: clickable `<link>` tags in a TextMeshPro label, and taps and swipes on a UI element. |
+| `HyperlinkText`, `HyperlinkClick` | `OpenUGD.UI` | A `MonoBehaviour` that makes the `<link>` tags of a TextMeshPro label clickable. A click raises `LinkClicked` first; the link id is then opened with `Application.OpenURL` unless a handler marked the `HyperlinkClick` handled or `OpenUrls` is off. |
+| `UIGestureDetector` | `OpenUGD.UI` | A `MonoBehaviour` that reports taps and four-way swipes on a UI element as `ISignal`s, following the pointer even when it leaves the element. |
 
 ## Localisation
 

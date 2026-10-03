@@ -1,5 +1,3 @@
-// © 2025 OpenUGD
-
 using System;
 using UnityEngine.Events;
 using UnityEngine.Scripting.APIUpdating;

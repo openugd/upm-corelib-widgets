@@ -17,8 +17,9 @@ built in code, so there is no scene or prefab to import.
 All the binding is in `GesturesAndLinksPresenter.cs`; `GesturesAndLinksView.cs` builds the controls.
 
 - **Gestures.** `AddGesture(view.Area, OnGesture)` funnels the detector's five signals into one method. Swipe
-  past a tenth of the screen height (`swipeThresholdOfScreen`) for a swipe; a press released where it went down is
-  a tap. One press reports one gesture at most, and a swipe that leaves the area still counts.
+  past a tenth of the screen height (`swipeThresholdOfScreen`) for a swipe; a press released without ever moving
+  that far from where it went down is a tap. One press reports one gesture at most, and a swipe that leaves the
+  area still counts.
 - **A detector that has never been active.** The panel starts inactive. The presenter subscribes to its detector
   before Unity has ever woken it, and the subscription works once the panel is shown. A detector that is never
   shown leaves nothing behind.

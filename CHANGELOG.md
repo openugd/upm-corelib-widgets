@@ -17,7 +17,8 @@ the README's "Upgrading to 2.0" section walks through them with before and after
 - `TextModel.Resolve(ILocalization)`, the rule the text presenters render by, and `TextModelPresenter<TView>`,
   their base, for a text widget of your own.
 - `HyperlinkText.LinkClicked`, `HyperlinkClick.Handled` and `OpenUrls`: a click on a link is reported before
-  anything is opened, and a handler can refuse it. `FindLinkId` and `OpenUrl` can be overridden.
+  anything is opened, and a handler can refuse it; `HyperlinkOpenEvent` then is not raised. `FindLinkId` and
+  `OpenUrl` can be overridden.
 - Samples: Settings Screen, Recycled List, Gestures and Links, Keyboard Shortcuts.
 - An EditMode test assembly, `com.openugd.corelib.widgets.tests`.
 - XML documentation on every public member.
@@ -41,8 +42,8 @@ the README's "Upgrading to 2.0" section walks through them with before and after
   the arguments on every render, and again on a language change. Affects you if a translated format lacks its
   `<link>` tags.
 - **`WithIntervalUpdate` takes the `ICoroutineProvider` as its second parameter**, drives any
-  `Presenter<TView, TModel>` and returns it as that type. Its first update's exception reaches the caller, and a
-  failing tick stops the timer.
+  `Presenter<TView, TModel>` and returns it as that type. Its first update's exception reaches the caller instead
+  of being logged.
 - **`UIGestureDetector`'s signals are `ISignal`**, so only the detector raises them. Affects you if you called
   `Fire()` on one.
 - **`UIGestureDetector` follows the pointer outside the element**, so a `ScrollRect` above it no longer gets the
@@ -52,14 +53,16 @@ the README's "Upgrading to 2.0" section walks through them with before and after
   reject `null` arguments and do nothing on a terminated lifetime.
 - **A render is never reported as a change.** Affects you if you relied on `SetModel` of a slider or an input field
   raising its callback or signal.
-- **Every `SetModel` renders.** A later `SetModel` did not update a toggle, or an int slider's range. Every
-  helper sets the model before the view.
+- **Every `SetModel` renders.** A later `SetModel` did not update a toggle or an image, or an int slider's range.
+  Every helper sets the model before the view.
 - **`SliderIntPresenter` turns on `Slider.wholeNumbers`.**
 - **`AddSliderFloat(…, onChange)` throws `ArgumentNullException` for a `null` handler** before attaching anything.
 - **`InputFieldPresenter.InputValue` throws `InvalidOperationException`** without a live view, instead of
   `NullReferenceException`; `RegisterToggleInGroup` throws `ArgumentNullException` for a `null` presenter.
-- **`HyperlinkOpenEvent` is raised only for links that were opened.**
-- **No `com.unity.textmeshpro` dependency**: TextMeshPro comes from `com.unity.ugui` 2.0.0 on Unity 6.
+- **`AddInputField(…, maxLength)` writes the limit to every view the presenter is given**, one set later
+  included; 0.5.0 threw `NullReferenceException` for a `null` view.
+- **TextMeshPro comes from `com.unity.ugui` 2.0.0**, now a declared dependency; 0.5.0 declared none and relied on
+  the project installing `com.unity.textmeshpro`, a deprecated shim on Unity 6.
 - **Dependencies**: `com.openugd.corelib`, `com.openugd.context` (replacing `com.openugd.dependency.injection`),
   `com.openugd.lifetime` and `com.openugd.signal` 2.0.0, and `com.unity.ugui` 2.0.0. An asmdef that uses the
   presenters also references `com.openugd.presenters`.

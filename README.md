@@ -73,21 +73,27 @@ needs as well:
 
 Asmdef references are not transitive. An assembly definition of yours that uses these presenters references
 `com.openugd.corelib.widgets` and `com.openugd.presenters`, plus `com.openugd.lifetime` and `com.openugd.signal`
-to pass a `Lifetime` or subscribe to a signal, `com.openugd.corelib` for `ContextPresenterFactory` or
-`ICoroutineProvider`, and `Unity.TextMeshPro` for the TMP types. Scripts in `Assembly-CSharp` see everything.
+to pass a `Lifetime` or subscribe to a signal, `com.openugd.context` for `Context`, `ContextBuilder` or
+`[Inject]`, `com.openugd.corelib` for `ContextBehaviour`, `ContextPresenterFactory` or `ICoroutineProvider`, and
+`Unity.TextMeshPro` for the TMP types. Scripts in `Assembly-CSharp` see everything.
 
 ## Quick start
 
 A presenter tree needs a `Lifetime`, which says when it ends, and an `IPresenterFactory`, which injects it.
-`ContextPresenterFactory` injects from an `OpenUGD.Context`.
+`ContextPresenterFactory` injects from an `OpenUGD.Context`, which a `ContextBehaviour` from
+[`com.openugd.corelib`](https://github.com/openugd/upm-corelib#readme) builds. Put this component on a GameObject
+in a scene that has a Canvas and an EventSystem, assign the six controls, and press Play.
 
 ```csharp
+using System.Threading;
+using System.Threading.Tasks;
 using OpenUGD;
+using OpenUGD.Core;
 using OpenUGD.Presenters;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class SettingsScreen : ViewBehaviour
+public sealed class SettingsScreen : ContextBehaviour
 {
     [SerializeField] private Text _title;
     [SerializeField] private Text _score;
@@ -96,10 +102,17 @@ public class SettingsScreen : ViewBehaviour
     [SerializeField] private Toggle _sound;
     [SerializeField] private Slider _volume;
 
-    public void Bind(Context context)
+    protected override bool PersistAcrossScenes => false;
+
+    // The context the presenters are injected from. They need nothing from it; a game registers its services
+    // here, an ILocalization among them.
+    protected override Task<Context> CreateContextAsync(CancellationToken cancellationToken) =>
+        Context.CreateBuilder(Lifetime).BuildAsync(cancellationToken);
+
+    protected override void OnStarted(Context context)
     {
-        // ViewBehaviour.Lifetime ends in OnDestroy, so the whole tree closes with this GameObject and every
-        // listener below is removed with it. There is no unsubscribe code anywhere.
+        // The tree ends with this component's Lifetime, in OnDestroy or when Play mode stops, and every listener
+        // below is removed with it. There is no unsubscribe code anywhere.
         var root = new Presenter.Root(Lifetime, new ContextPresenterFactory(context));
 
         root.AddText(_title, "Settings");
@@ -149,10 +162,10 @@ is attached throws `InvalidOperationException`. Where the model also carries a c
 
 ### Listeners follow the view
 
-Each presenter that listens to its view adds the listener in `OnViewAdded`, on the view's own `ViewLifetime`. That scope ends when the
-view is replaced, detached or the presenter closes, so the listener goes with it: replacing a view moves the
-listener, detaching removes it, and re-attaching adds exactly one. That is what makes recycled views safe. A list
-can keep one presenter per item and move a pooled row view between them:
+Each presenter that listens to its view adds the listener in `OnViewAdded`, on the view's own `ViewLifetime`.
+That scope ends when the view is replaced, detached or the presenter closes, so the listener goes with it:
+replacing a view moves the listener, detaching removes it, and re-attaching adds exactly one. That is what makes
+recycled views safe. A list can keep one presenter per item and move a pooled row view between them:
 
 ```csharp
 using OpenUGD.Presenters;
@@ -291,9 +304,10 @@ public static class CardGestures
 
 A press reports at most one gesture. A swipe is a movement past `swipeThresholdOfScreen` (a fraction of the screen
 height, default 0.1); it fires as the pointer crosses it, or on release with `detectSwipeOnlyAfterRelease`. A tap is
-a release within that distance of the press. The detector follows the pointer outside the element, and takes the
-drags of its own presses from a `ScrollRect` above it. Its signals accept subscriptions before the GameObject is
-first active, and a detector that is never activated leaves nothing behind.
+a release within that distance of the press, by a pointer that never went further. The detector follows the
+pointer outside the element, and takes the drags of its own presses from a `ScrollRect` above it. Its signals
+accept subscriptions before the GameObject is first active, and a detector that is never activated leaves nothing
+behind.
 
 ### Links
 
@@ -394,8 +408,8 @@ run on .NET without the editor.
 This section is for users of `com.openugd.corelib.widgets` 0.5.0. Version 2.0.0 requires Unity 6000.0 or newer
 and the 2.0 versions of the OpenUGD family, and is licensed under Apache-2.0 (0.5.0 shipped a modified MIT text).
 `com.openugd.corelib` 2.0 changes the presenter base class itself, and `com.openugd.context` replaces
-`com.openugd.dependency.injection`; their READMEs cover those changes. There are no `[Obsolete]` forwarding types: the
-base class, the lifecycle hooks and the DI layer change together, so old code does not compile either way.
+`com.openugd.dependency.injection`; their READMEs cover those changes. There are no `[Obsolete]` forwarding types:
+the base class, the lifecycle hooks and the DI layer change together, so old code does not compile either way.
 
 | What | 0.5.0 | 2.0.0 | What to do |
 | --- | --- | --- | --- |
@@ -506,7 +520,8 @@ The sample's README covers `onKey` and `onKeyUp`, which it leaves out, and the k
 ### TextMeshPro comes with uGUI
 
 On Unity 6, TextMeshPro is part of `com.unity.ugui` 2.0, and `com.unity.textmeshpro` is a deprecated 5.0.0 shim.
-The package depends on `com.unity.ugui` 2.0.0 only, and the TMP presenters stay in its one runtime assembly, which
+0.5.0 declared no TextMeshPro dependency and relied on the project installing `com.unity.textmeshpro`; 2.0.0
+declares `com.unity.ugui` 2.0.0, which contains it, and keeps the TMP presenters in its one runtime assembly, which
 references `Unity.TextMeshPro`. Nothing needs installing; an asmdef of yours keeps its `Unity.TextMeshPro`
 reference, and the TMP Essential Resources are still needed to draw TMP text.
 
@@ -525,7 +540,8 @@ label.WithIntervalUpdate(_coroutines, _ => FormatTimeLeft());
 ```
 
 It now waits in unscaled time, so a countdown keeps running while `Time.timeScale` is `0`; it allocates one wait per
-timer instead of one per tick; and the first update happens inside the call, so its exception reaches you.
+timer instead of one per tick; and an exception from the first update, which still happens inside the call,
+reaches you instead of being logged by the coroutine.
 
 ### Localisation
 
@@ -555,8 +571,9 @@ with the label on the same GameObject.
 
 - **Renders are silent.** `SetModel` on a slider or an input field no longer raises its change signal or
   callback; only the user, or code writing the widget directly, does.
-- **Every `SetModel` renders.** 0.5.0's toggle and int slider rendered once, when they first had both a model and
-  a view; a later `SetModel` left the toggle as it was and moved the slider without updating its range.
+- **Every `SetModel` renders.** 0.5.0's toggle, image and int slider rendered once, when they first had both a
+  model and a view; a later `SetModel` left the toggle and the image as they were, and moved the slider without
+  updating its range.
 - **Listeners follow the view.** Replacing, detaching or re-attaching a view moves, removes or re-adds its listener
   exactly once. 0.5.0 left the old view's listener in place, and closing after `SetView(null)` threw.
 - **`SliderIntPresenter` turns on `wholeNumbers`.**

@@ -113,6 +113,21 @@ namespace OpenUGD.Widgets.Tests
         }
 
         [Test]
+        public void ARenderThatThrowsOnTheFirstUpdate_StopsTheTimer_AndTheExceptionReachesTheCaller()
+        {
+            // The documented exceptions include the render of the first model, not only the callback (review).
+            var runner = new SteppingRunner();
+            var presenter = Root.AddPresenter(new FailingRender());
+            presenter.SetView(new Board());
+
+            var thrown = Assert.Throws<FormatException>(() => presenter.WithIntervalUpdate(runner, _ => 1));
+
+            Assert.AreEqual("render 1", thrown.Message);
+            Assert.AreEqual(1, runner.Stopped, "the timer ended and stopped its coroutine");
+            Assert.IsFalse(runner.Step());
+        }
+
+        [Test]
         public void ACallbackThatThrowsOnALaterTick_EndsTheCoroutine_AndThePresenterIsStillSafeToClose()
         {
             var runner = new SteppingRunner();
@@ -225,6 +240,19 @@ namespace OpenUGD.Widgets.Tests
         {
             Assert.Throws<InvalidOperationException>(() =>
                 new TMPPresenter().WithIntervalUpdate(new SteppingRunner(), _ => ""));
+        }
+
+        private sealed class Board
+        {
+        }
+
+        // Renders nothing, and fails to render any positive model.
+        private sealed class FailingRender : Presenter<Board, int>
+        {
+            protected override void OnRefresh()
+            {
+                if (Model > 0) throw new FormatException("render " + Model);
+            }
         }
 
         // Behaves as Unity does where the extension can tell: runs the coroutine's first step inside

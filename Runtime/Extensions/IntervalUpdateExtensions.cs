@@ -61,8 +61,9 @@ namespace OpenUGD.Presenters
         /// <exception cref="ArgumentNullException">An argument is <c>null</c>. Nothing is started.</exception>
         /// <exception cref="InvalidOperationException"><paramref name="presenter"/> has not been attached.
         /// </exception>
-        /// <exception cref="Exception">Whatever <paramref name="coroutines"/> or the first call of
-        /// <paramref name="model"/> throws, after the timer has been stopped.</exception>
+        /// <exception cref="Exception">Whatever <paramref name="coroutines"/>, the first call of
+        /// <paramref name="model"/> or the render of its result throws, after the timer has been stopped.
+        /// </exception>
         public static Presenter<TView, TModel> WithIntervalUpdate<TView, TModel>(
             this Presenter<TView, TModel> presenter, ICoroutineProvider coroutines, Func<IDisposable, TModel> model)
             where TView : class =>
@@ -76,9 +77,10 @@ namespace OpenUGD.Presenters
         /// <remarks>
         /// <para>
         /// <b>The first update happens inside this call</b>, once the coroutine has started, so the view shows the
-        /// callback's model before this method returns. If that first call throws, the timer is stopped and the
-        /// exception propagates to the caller. An exception from a later tick ends the coroutine, and Unity logs
-        /// it; the timer's scope then stays until the presenter closes, and closing it is still safe.
+        /// callback's model before this method returns. If that first call, or the render of its result, throws,
+        /// the timer is stopped and the exception propagates to the caller. An exception from a later tick ends
+        /// the coroutine, and Unity logs it; the timer's scope then stays until the presenter closes, and closing
+        /// it is still safe.
         /// </para>
         /// <para>
         /// Disposing the scope from inside the callback still renders that call's result; the callback is not
@@ -104,7 +106,8 @@ namespace OpenUGD.Presenters
         /// <exception cref="Exception">Whatever <paramref name="coroutines"/> throws when it cannot start the
         /// coroutine — <see cref="InvalidOperationException"/> for an inactive or destroyed host, by the contract of
         /// <see cref="ICoroutineProvider.StartCoroutine"/> — or whatever the first call of <paramref name="model"/>
-        /// throws. Either way the timer has been stopped first.</exception>
+        /// or the render of its result throws (a <see cref="FormatException"/> from <see cref="TextModel.Resolve"/>,
+        /// say). Either way the timer has been stopped first.</exception>
         public static Presenter<TView, TModel> WithIntervalUpdate<TView, TModel>(
             this Presenter<TView, TModel> presenter, ICoroutineProvider coroutines, Func<IDisposable, TModel> model,
             TimeSpan interval)
@@ -169,8 +172,9 @@ namespace OpenUGD.Presenters
         /// <exception cref="ArgumentNullException">An argument is <c>null</c>. Nothing is started.</exception>
         /// <exception cref="InvalidOperationException"><paramref name="presenter"/> has not been attached.
         /// </exception>
-        /// <exception cref="Exception">Whatever <paramref name="coroutines"/> or the first call of
-        /// <paramref name="text"/> throws, after the timer has been stopped.</exception>
+        /// <exception cref="Exception">Whatever <paramref name="coroutines"/>, the first call of
+        /// <paramref name="text"/> or the render of its result throws, after the timer has been stopped.
+        /// </exception>
         public static Presenter<TView, TextModel> WithIntervalUpdate<TView>(this Presenter<TView, TextModel> presenter,
             ICoroutineProvider coroutines, Func<IDisposable, string> text)
             where TView : class =>
@@ -192,8 +196,9 @@ namespace OpenUGD.Presenters
         /// <exception cref="ArgumentNullException">An argument is <c>null</c>. Nothing is started.</exception>
         /// <exception cref="InvalidOperationException"><paramref name="presenter"/> has not been attached.
         /// </exception>
-        /// <exception cref="Exception">Whatever <paramref name="coroutines"/> or the first call of
-        /// <paramref name="text"/> throws, after the timer has been stopped.</exception>
+        /// <exception cref="Exception">Whatever <paramref name="coroutines"/>, the first call of
+        /// <paramref name="text"/> or the render of its result throws, after the timer has been stopped.
+        /// </exception>
         public static Presenter<TView, TextModel> WithIntervalUpdate<TView>(this Presenter<TView, TextModel> presenter,
             ICoroutineProvider coroutines, Func<IDisposable, string> text, TimeSpan interval)
             where TView : class

@@ -118,8 +118,9 @@ Almost everything below is breaking. Each breaking entry ends with the change to
   that start on it. A press that a pointer-down handler below the detector takes instead (a `Button` inside
   the gesture area) is not the detector's: through the new `IInitializePotentialDragHandler` it hands that
   drag to the drag handler above it, or to none, as if the detector were not there: the button keeps its
-  click, or a `ScrollRect` above takes the drag, as it always did. The per-frame `Update` is gone: a swipe is tested on each pointer event. `OnDisable`
-  (which abandons a gesture in progress) and `OnDestroy` are `protected virtual`. Migration: code that called
+  click, or a `ScrollRect` above takes the drag, as it always did. The per-frame `Update` is gone: a swipe is
+  tested on each pointer event. `OnDisable` (which abandons a gesture in progress) and `OnDestroy` are
+  `protected virtual`. Migration: code that called
   `Fire()` on a detector's signal drives its pointer handlers instead; a subclass that declared its own
   `OnDestroy` or `OnDisable` overrides it and calls `base`.
 - **Breaking: the `AddSliderFloat(…, onChange)` overloads reject a `null` handler** with

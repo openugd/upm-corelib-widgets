@@ -37,8 +37,8 @@ attach under that screen.
 | `onKey:` (every frame the key is held) | not included: read `isPressed` / `Input.GetKey` in a copy of the helper |
 | `onKeyUp:` (the frame the key is released) | not included: read `wasReleasedThisFrame` / `Input.GetKeyUp` in a copy of the helper |
 
-The coroutine provider is a parameter, injected into the presenter, instead of being resolved from
-`Presenter.Context` inside the helper.
+The coroutine provider is a parameter, injected into the presenter. `AddKeyboard` resolved it from the
+presenter's context, and 2.0.0 presenters no longer expose one (`Presenter.Context` is gone).
 
 ## What it reads
 

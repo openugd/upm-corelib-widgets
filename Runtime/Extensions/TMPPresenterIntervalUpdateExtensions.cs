@@ -3,181 +3,162 @@ using System.Collections;
 using OpenUGD.Utils;
 using UnityEngine;
 
-namespace OpenUGD.Core.Presenters
+namespace OpenUGD.Presenters
 {
     /// <summary>
     /// Drives a <see cref="TMPPresenter"/> from a callback on a timer, for a label whose text depends on
-    /// something that changes on its own — a countdown, a clock, an energy bar's refill time.
+    /// something that changes on its own — a countdown, a clock, a refill timer.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Pull, not push.</b> Nothing here observes anything: the callback is asked for the current text
-    /// every <c>interval</c>, and whatever it returns is set as the presenter's model. That is the right
-    /// shape for a value derived from wall-clock time, which has no change event to subscribe to, and the
-    /// wrong shape for a value that does — use a signal for those.
+    /// <b>Pull, not push.</b> The callback is asked for the current text every interval and its result is set
+    /// as the presenter's model. That suits a value derived from time, which has no change event; for a value
+    /// that does, subscribe to its signal instead.
     /// </para>
     /// <para>
-    /// <b>Scope.</b> Each call defines a nested scope on the presenter's <see cref="Presenter.Lifetime"/>
-    /// and stops the coroutine when that scope ends, so the timer dies with the presenter and never outlives
-    /// the label it writes to. The callback is handed that scope as an <see cref="IDisposable"/>, which is
-    /// how it stops itself once there is nothing left to count down.
+    /// <b>Scope.</b> Each call defines a scope nested in the presenter's <see cref="Presenter.Lifetime"/> and
+    /// stops the coroutine when that scope ends, so the timer never outlives the label. The callback is handed
+    /// that scope as an <see cref="IDisposable"/>: disposing it stops the timer.
     /// </para>
     /// <para>
-    /// <b>It is engine time, and engine scheduling.</b> The wait is a <see cref="WaitForSeconds"/>, so it is
-    /// scaled by <see cref="Time.timeScale"/> — a paused game stops the ticking — and it resumes on a frame
-    /// boundary, so an interval shorter than a frame just means "every frame". The coroutine also belongs to
-    /// whatever host the <see cref="ICoroutineProvider"/> runs it on and stops if that host's
-    /// <see cref="GameObject"/> is deactivated, which the presenter has no way to notice.
+    /// <b>Engine time and engine scheduling.</b> The wait is a <see cref="WaitForSeconds"/>, so it is scaled by
+    /// <see cref="Time.timeScale"/> and resumes on a frame boundary; an interval shorter than a frame means
+    /// "every frame". The coroutine runs on the <see cref="ICoroutineProvider"/> you pass, and stops for good
+    /// if that provider's host is deactivated or destroyed.
+    /// </para>
+    /// <para>
+    /// <i>Changed in 2.0.0</i> — the coroutine provider is a parameter. It was resolved from the removed
+    /// <c>Presenter.Context</c>; inject an <see cref="ICoroutineProvider"/> into the presenter that calls this
+    /// and pass it on.
     /// </para>
     /// </remarks>
     public static class TMPPresenterIntervalUpdateExtensions
     {
         /// <summary>
-        /// The interval used by the two overloads that do not take one: 100 ms, ten updates a second.
+        /// The interval used by the overloads that do not take one: 100 ms.
         /// </summary>
-        /// <remarks>
-        /// Chosen as a refresh cadence for a human reading a changing number, not as a simulation tick — it
-        /// is fast enough that a seconds counter never visibly lags, and slow enough to cost nothing. Being
-        /// a <see cref="TimeSpan"/> it is immutable, so this shared field cannot be altered by a caller.
-        /// </remarks>
         public static readonly TimeSpan DefaultInterval = TimeSpan.FromMilliseconds(100);
 
         /// <summary>
-        /// Drives the label from a callback returning a plain string, every
-        /// <see cref="DefaultInterval"/>.
+        /// Drives the label from a callback returning a plain string, every <see cref="DefaultInterval"/>.
+        /// See <see cref="WithIntervalUpdate(TMPPresenter, ICoroutineProvider, Func{IDisposable, TextModel}, TimeSpan)"/>.
         /// </summary>
-        /// <remarks>
-        /// The string becomes a <see cref="TextModel"/> with no substitutions, so it is still translated
-        /// when a localisation is registered but never receives format arguments. For everything else —
-        /// when the first update happens, how it stops, what it throws — see
-        /// <see cref="WithIntervalUpdate(TMPPresenter, Func{IDisposable, TextModel}, TimeSpan)"/>.
-        /// </remarks>
-        /// <param name="parent">The presenter to drive. Must already be attached.</param>
-        /// <param name="text">Asked for the current text on every tick; dispose the scope it is handed to
-        /// stop. Returning <c>null</c> clears the label without stopping anything.</param>
-        /// <returns><paramref name="parent"/>, so this chains onto the call that created it.</returns>
-        /// <exception cref="InvalidOperationException"><paramref name="parent"/> has not been attached yet,
-        /// its lifetime has already terminated, or the coroutine host cannot run coroutines.</exception>
-        /// <exception cref="NullReferenceException"><paramref name="parent"/> or <paramref name="text"/> is
-        /// <c>null</c>; neither is validated.</exception>
-        public static TMPPresenter WithIntervalUpdate(this TMPPresenter parent, Func<IDisposable, string> text)
-        {
-            return parent.WithIntervalUpdate((disposable) => (TextModel)text(disposable), DefaultInterval);
-        }
+        /// <param name="presenter">The presenter to drive. It must be attached and alive.</param>
+        /// <param name="coroutines">Runs the timer.</param>
+        /// <param name="text">Asked for the current text on every tick; dispose the scope it is handed to stop.
+        /// </param>
+        /// <returns><paramref name="presenter"/>.</returns>
+        /// <exception cref="ArgumentNullException">An argument is <c>null</c>.</exception>
+        /// <exception cref="InvalidOperationException"><paramref name="presenter"/> has not been attached, or
+        /// <paramref name="coroutines"/> cannot start a coroutine.</exception>
+        public static TMPPresenter WithIntervalUpdate(this TMPPresenter presenter, ICoroutineProvider coroutines,
+            Func<IDisposable, string> text) =>
+            presenter.WithIntervalUpdate(coroutines, Wrap(text), DefaultInterval);
 
         /// <summary>
         /// Drives the label from a callback returning a plain string, on an interval you choose.
+        /// See <see cref="WithIntervalUpdate(TMPPresenter, ICoroutineProvider, Func{IDisposable, TextModel}, TimeSpan)"/>.
         /// </summary>
-        /// <remarks>
-        /// The string becomes a <see cref="TextModel"/> with no substitutions. See
-        /// <see cref="WithIntervalUpdate(TMPPresenter, Func{IDisposable, TextModel}, TimeSpan)"/> for the
-        /// first-update-is-synchronous rule and for the three ways this stops.
-        /// </remarks>
-        /// <param name="parent">The presenter to drive. Must already be attached.</param>
-        /// <param name="text">Asked for the current text on every tick; dispose the scope it is handed to
-        /// stop. Returning <c>null</c> clears the label without stopping anything.</param>
-        /// <param name="interval">The delay between updates, in scaled engine time. Rounded up to a frame,
-        /// so zero or a negative value means "every frame".</param>
-        /// <returns><paramref name="parent"/>, so this chains onto the call that created it.</returns>
-        /// <exception cref="InvalidOperationException"><paramref name="parent"/> has not been attached yet,
-        /// its lifetime has already terminated, or the coroutine host cannot run coroutines.</exception>
-        /// <exception cref="NullReferenceException"><paramref name="parent"/> or <paramref name="text"/> is
-        /// <c>null</c>; neither is validated.</exception>
-        public static TMPPresenter WithIntervalUpdate(this TMPPresenter parent, Func<IDisposable, string> text,
-            TimeSpan interval)
-        {
-            return parent.WithIntervalUpdate((disposable) => (TextModel)text(disposable), interval);
-        }
+        /// <param name="presenter">The presenter to drive. It must be attached and alive.</param>
+        /// <param name="coroutines">Runs the timer.</param>
+        /// <param name="text">Asked for the current text on every tick; dispose the scope it is handed to stop.
+        /// </param>
+        /// <param name="interval">The delay between updates, in scaled engine time.</param>
+        /// <returns><paramref name="presenter"/>.</returns>
+        /// <exception cref="ArgumentNullException">An argument is <c>null</c>.</exception>
+        /// <exception cref="InvalidOperationException"><paramref name="presenter"/> has not been attached, or
+        /// <paramref name="coroutines"/> cannot start a coroutine.</exception>
+        public static TMPPresenter WithIntervalUpdate(this TMPPresenter presenter, ICoroutineProvider coroutines,
+            Func<IDisposable, string> text, TimeSpan interval) =>
+            presenter.WithIntervalUpdate(coroutines, Wrap(text), interval);
 
         /// <summary>
-        /// Drives the label from a callback returning a full <see cref="TextModel"/>, every
-        /// <see cref="DefaultInterval"/> — the overload to use when the text needs substitutions.
+        /// Drives the label from a callback returning a <see cref="TextModel"/>, every
+        /// <see cref="DefaultInterval"/>.
+        /// See <see cref="WithIntervalUpdate(TMPPresenter, ICoroutineProvider, Func{IDisposable, TextModel}, TimeSpan)"/>.
         /// </summary>
-        /// <remarks>
-        /// Identical to
-        /// <see cref="WithIntervalUpdate(TMPPresenter, Func{IDisposable, TextModel}, TimeSpan)"/> with
-        /// <see cref="DefaultInterval"/> passed explicitly.
-        /// </remarks>
-        /// <param name="parent">The presenter to drive. Must already be attached.</param>
+        /// <param name="presenter">The presenter to drive. It must be attached and alive.</param>
+        /// <param name="coroutines">Runs the timer.</param>
         /// <param name="text">Asked for the current model on every tick; dispose the scope it is handed to
-        /// stop. Returning a model whose <c>Format</c> is <c>null</c> clears the label but does not
-        /// stop anything.</param>
-        /// <returns><paramref name="parent"/>, so this chains onto the call that created it.</returns>
-        /// <exception cref="InvalidOperationException"><paramref name="parent"/> has not been attached yet,
-        /// its lifetime has already terminated, or the coroutine host cannot run coroutines.</exception>
-        /// <exception cref="NullReferenceException"><paramref name="parent"/> or <paramref name="text"/> is
-        /// <c>null</c>; neither is validated.</exception>
-        public static TMPPresenter WithIntervalUpdate(this TMPPresenter parent, Func<IDisposable, TextModel> text)
-        {
-            return parent.WithIntervalUpdate(text, DefaultInterval);
-        }
+        /// stop.</param>
+        /// <returns><paramref name="presenter"/>.</returns>
+        /// <exception cref="ArgumentNullException">An argument is <c>null</c>.</exception>
+        /// <exception cref="InvalidOperationException"><paramref name="presenter"/> has not been attached, or
+        /// <paramref name="coroutines"/> cannot start a coroutine.</exception>
+        public static TMPPresenter WithIntervalUpdate(this TMPPresenter presenter, ICoroutineProvider coroutines,
+            Func<IDisposable, TextModel> text) =>
+            presenter.WithIntervalUpdate(coroutines, text, DefaultInterval);
 
         /// <summary>
-        /// Starts a coroutine that sets <paramref name="parent"/>'s model to whatever
-        /// <paramref name="text"/> returns, every <paramref name="interval"/>, until the presenter closes or
-        /// the callback stops it. The overload the other three end up in.
+        /// Starts a coroutine on <paramref name="coroutines"/> that sets <paramref name="presenter"/>'s model to
+        /// whatever <paramref name="text"/> returns, every <paramref name="interval"/>, until the presenter
+        /// closes or the callback disposes the scope it is handed.
         /// </summary>
         /// <remarks>
         /// <para>
-        /// <b>The first update happens inside this call</b>, before it returns: a coroutine runs up to its
-        /// first wait synchronously. The label is therefore never briefly empty, and a callback that throws
-        /// straight away throws out of this method rather than out of a coroutine nobody is watching.
+        /// <b>The first update happens as the coroutine starts.</b> Unity runs a coroutine up to its first wait
+        /// inside <c>StartCoroutine</c>, so with <c>CoroutineProvider</c> the label is set before this method
+        /// returns.
         /// </para>
         /// <para>
-        /// <b>Stopping.</b> Two things end it, and both work by terminating the timer's scope: the presenter
-        /// closing, since that scope is nested in <see cref="Presenter.Lifetime"/>, or the callback disposing
-        /// the <see cref="IDisposable"/> it is handed. Terminating that scope is what stops the coroutine;
-        /// the loop's own check of the scope before each update is a second line of defence, not a third way
-        /// out. The disposable is the interesting one — it is what lets "count down, then stop" live entirely
-        /// inside the callback with no state held outside it. Disposing during an invocation still renders
-        /// that invocation's result; the loop simply never runs again. Disposing during the very first,
-        /// synchronous invocation is safe too: the stop is registered a moment later on an
-        /// already-terminated scope, and <c>Lifetime.AddAction</c> then runs it immediately.
-        /// </para>
-        /// <para>
-        /// <b>Nothing is de-duplicated.</b> Calling this twice on one presenter leaves two coroutines both
-        /// setting its model from their own callbacks; the label shows whichever ran last.
-        /// </para>
-        /// <para>
-        /// If no <see cref="ICoroutineProvider"/> is registered, the resolve throws a <c>ContextException</c>
-        /// and the nested scope defined a line earlier stays registered on the presenter until it closes. It
-        /// holds nothing and does nothing, but it is not unwound.
+        /// Disposing the scope from inside the callback still renders that call's result; the loop does not
+        /// run again. Calling this twice on one presenter runs two timers that both set its model. If the
+        /// coroutine cannot be started, the timer's scope is ended before the exception propagates.
         /// </para>
         /// </remarks>
-        /// <param name="parent">The presenter to drive. Must already be attached — both its
-        /// <see cref="Presenter.Lifetime"/> and its <see cref="Presenter.Context"/> are read here.</param>
-        /// <param name="text">Asked for the current text on every tick, on Unity's main thread. It is handed
-        /// the timer's own scope: dispose that to stop the updates. Returning a model whose <c>Format</c> is
-        /// <c>null</c> clears the label without stopping anything.</param>
-        /// <param name="interval">The delay between updates, in scaled engine time. Rounded up to a frame,
-        /// so zero or a negative value means "every frame" rather than "as fast as possible".</param>
-        /// <returns><paramref name="parent"/>, so this chains onto the call that created it.</returns>
-        /// <exception cref="InvalidOperationException"><paramref name="parent"/> has not been attached yet,
-        /// its lifetime has already terminated, or the coroutine host cannot run coroutines — see
+        /// <param name="presenter">The presenter to drive. It must be attached and alive.</param>
+        /// <param name="coroutines">Runs the timer. Typically injected into the presenter that calls this.
+        /// </param>
+        /// <param name="text">Asked for the current model on every tick, on Unity's main thread, and handed the
+        /// timer's scope.</param>
+        /// <param name="interval">The delay between updates, in scaled engine time. Zero or negative means
+        /// every frame.</param>
+        /// <returns><paramref name="presenter"/>.</returns>
+        /// <exception cref="ArgumentNullException">An argument is <c>null</c>. Nothing is started.</exception>
+        /// <exception cref="InvalidOperationException"><paramref name="presenter"/> has not been attached, or
+        /// <paramref name="coroutines"/> cannot start a coroutine — see
         /// <see cref="ICoroutineProvider.StartCoroutine"/>.</exception>
-        /// <exception cref="NullReferenceException"><paramref name="parent"/> or <paramref name="text"/> is
-        /// <c>null</c>; neither is validated.</exception>
-        public static TMPPresenter WithIntervalUpdate(this TMPPresenter parent, Func<IDisposable, TextModel> text,
-            TimeSpan interval)
+        public static TMPPresenter WithIntervalUpdate(this TMPPresenter presenter, ICoroutineProvider coroutines,
+            Func<IDisposable, TextModel> text, TimeSpan interval)
         {
-            IEnumerator IntervalCoroutine(Lifetime lifetime, IDisposable df)
+            if (presenter == null)
+                throw new ArgumentNullException(nameof(presenter), $"{nameof(presenter)} can't be null");
+            if (coroutines == null)
+                throw new ArgumentNullException(nameof(coroutines), $"{nameof(coroutines)} can't be null");
+            if (text == null)
+                throw new ArgumentNullException(nameof(text), $"{nameof(text)} can't be null");
+
+            var timer = presenter.Lifetime.DefineNested();
+            Coroutine coroutine;
+            try
             {
-                while (!lifetime.IsTerminated)
-                {
-                    parent.SetModel(text(df));
-                    yield return new WaitForSeconds((float)interval.TotalSeconds);
-                }
+                coroutine = coroutines.StartCoroutine(Tick(presenter, timer, text, interval));
+            }
+            catch
+            {
+                timer.Terminate();
+                throw;
             }
 
-            var df = parent.Lifetime.DefineNested();
-            var coroutineProvider = parent.Context.Resolve<ICoroutineProvider>();
-            var coroutine = coroutineProvider.StartCoroutine(IntervalCoroutine(df.Lifetime, df));
-            if (coroutine != null)
-            {
-                df.Lifetime.AddAction(() => coroutineProvider.StopCoroutine(coroutine));
-            }
+            timer.Lifetime.AddAction(() => coroutines.StopCoroutine(coroutine));
+            return presenter;
+        }
 
-            return parent;
+        private static IEnumerator Tick(TMPPresenter presenter, Lifetime.Definition timer,
+            Func<IDisposable, TextModel> text, TimeSpan interval)
+        {
+            while (!timer.IsTerminated)
+            {
+                presenter.SetModel(text(timer));
+                yield return new WaitForSeconds((float)interval.TotalSeconds);
+            }
+        }
+
+        private static Func<IDisposable, TextModel> Wrap(Func<IDisposable, string> text)
+        {
+            if (text == null)
+                throw new ArgumentNullException(nameof(text), $"{nameof(text)} can't be null");
+            return scope => text(scope);
         }
     }
 }

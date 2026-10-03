@@ -26,7 +26,7 @@ namespace OpenUGD.UI
     /// <b>Scope.</b> The signals hang off a lifetime nested in <see cref="OpenUGD.Lifetime.Eternal"/> and
     /// named after the GameObject. It is created the first time any signal is read and terminated in
     /// <c>OnDestroy</c>, so destroying the object drops every handler; a signal obtained beforehand then
-    /// refuses further subscription (<c>Subscribe</c> returns <c>false</c>) instead of quietly leaking.
+    /// silently registers nothing instead of leaking the handler.
     /// Nothing here is thread-safe, and nothing needs to be: everything runs on Unity's main thread.
     /// </para>
     /// </remarks>

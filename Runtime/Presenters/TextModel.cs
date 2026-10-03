@@ -1,87 +1,109 @@
-namespace OpenUGD.Core.Presenters
+using System;
+
+namespace OpenUGD.Presenters
 {
     /// <summary>
-    /// What the two text presenters render: a string that is either the text itself or a localisation key,
-    /// plus the arguments to substitute into it.
+    /// What the text presenters render: a string that is the text itself or a localisation key, plus
+    /// optional arguments to substitute into it. <see cref="Resolve"/> is the one rule all three text
+    /// presenters render by.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>A value, copied on assignment.</b> <c>SetModel</c> stores a copy of the two fields, so mutating
-    /// the <see cref="TextModel"/> you handed over changes nothing on screen — set it again instead. The
-    /// <see cref="Keys"/> array is the exception: the copy points at the same array, whose elements are
-    /// re-read on every render.
+    /// <b>A value.</b> <c>SetModel</c> stores a copy of the two fields, so changing a
+    /// <see cref="TextModel"/> after handing it over changes nothing on screen; set it again instead. The
+    /// <see cref="Keys"/> array is shared, not copied, and is read again on every render.
     /// </para>
     /// <para>
-    /// <b>It is only a key when a localisation is registered.</b> <see cref="TMPPresenter"/> and
-    /// <see cref="TextPresenter"/> take <see cref="ILocalization"/> optionally; with nothing registered they
-    /// write <see cref="Format"/> to the view verbatim and ignore <see cref="Keys"/> altogether,
-    /// placeholders and all. Substitution exists only on the localised path.
-    /// </para>
-    /// <para>
-    /// <b><c>model == null</c> compiles, and asks whether <see cref="Format"/> is <c>null</c>.</b> A
-    /// <see cref="TextModel"/> is a value and is never itself <c>null</c>, but the implicit conversion to
-    /// <c>string</c> makes that comparison bind to string equality. Both presenters use exactly that test to
-    /// decide whether they have anything to render, which is why <c>default(TextModel)</c> clears the widget
-    /// rather than throwing.
+    /// A <c>string</c> converts implicitly to a model with no arguments, so every API that takes a
+    /// <see cref="TextModel"/> also takes a <c>string</c>. The conversion back to <c>string</c> yields the
+    /// raw <see cref="Format"/>, which is why <c>model == null</c> compiles and asks whether
+    /// <see cref="Format"/> is <c>null</c>.
     /// </para>
     /// </remarks>
     public struct TextModel
     {
         /// <summary>
-        /// Wraps a plain string as a model with no substitutions, so every API that takes a
-        /// <see cref="TextModel"/> also takes a <c>string</c> with no ceremony at the call site.
+        /// The text, the localisation key for it, or — when <see cref="Keys"/> is not <c>null</c> — the
+        /// composite format pattern (<c>{0}</c>, <c>{1}</c>, …) the arguments go into. <c>null</c> renders an
+        /// empty label.
         /// </summary>
-        /// <param name="text">The text, or the localisation key for it. <c>null</c> is allowed and produces
-        /// the model the presenters render as an empty widget.</param>
-        /// <returns>A model whose <see cref="Format"/> is <paramref name="text"/> and whose
-        /// <see cref="Keys"/> is <c>null</c>.</returns>
-        public static implicit operator TextModel(string text) =>
-            new() {
-                Format = text
-            };
+        public string Format;
 
         /// <summary>
-        /// Unwraps the model to its raw <see cref="Format"/> — untranslated, and with nothing yet
-        /// substituted into it.
+        /// The arguments for <see cref="Format"/>, or <c>null</c> for none. With a localisation, a
+        /// <c>string</c> element is a key of its own and is translated before it is substituted; any other
+        /// element is substituted as it is.
         /// </summary>
         /// <remarks>
-        /// Being implicit, this is also what makes <c>model == null</c> and <c>model == "some key"</c>
-        /// compile, as string comparisons against <see cref="Format"/>, and what lets a model be passed
-        /// straight to <see cref="ILocalization.Get"/>. It neither allocates nor throws.
+        /// <c>null</c> and an empty array differ: with <c>null</c>, <see cref="Format"/> is never run through
+        /// <c>string.Format</c>; with an empty array it is, so a literal brace in it must be doubled.
         /// </remarks>
+        public object[] Keys;
+
+        /// <summary>
+        /// Wraps a plain string as a model with no arguments.
+        /// </summary>
+        /// <param name="text">The text, or the localisation key for it. May be <c>null</c>.</param>
+        /// <returns>A model whose <see cref="Format"/> is <paramref name="text"/> and whose
+        /// <see cref="Keys"/> is <c>null</c>.</returns>
+        public static implicit operator TextModel(string text) => new TextModel { Format = text };
+
+        /// <summary>
+        /// Unwraps the model to its raw <see cref="Format"/>: untranslated, with nothing substituted.
+        /// </summary>
         /// <param name="text">The model to unwrap.</param>
         /// <returns><see cref="Format"/>, which may be <c>null</c>.</returns>
         public static implicit operator string(TextModel text) => text.Format;
 
         /// <summary>
-        /// The string to render: the text itself, the key to look it up by, or — when <see cref="Keys"/> is
-        /// non-<c>null</c> — the composite format pattern those arguments go into.
+        /// The text a presenter renders for this model: <see cref="Format"/> translated through
+        /// <paramref name="localization"/> when there is one, with <see cref="Keys"/> substituted into it
+        /// when there are any.
         /// </summary>
         /// <remarks>
-        /// With a localisation registered it goes through <see cref="ILocalization.Get"/> first, and it is
-        /// the <i>translated</i> result that receives the substitutions, so every <c>{0}</c> has to survive
-        /// translation. <c>null</c> is the "nothing to show" value: the presenters clear the view and never
-        /// call the localisation at all.
+        /// <para>In full:</para>
+        /// <list type="bullet">
+        /// <item><description><see cref="Format"/> is <c>null</c>: <c>""</c>, and the localisation is not
+        /// called.</description></item>
+        /// <item><description>No localisation: <see cref="Format"/> as it is, or
+        /// <c>string.Format(Format, Keys)</c> when <see cref="Keys"/> is not <c>null</c>.</description></item>
+        /// <item><description>A localisation: <c>localization.Get(Format)</c>, or, when <see cref="Keys"/> is
+        /// not <c>null</c>, that translated pattern formatted with a fresh array in which every <c>string</c>
+        /// key is replaced by <c>localization.Get(key)</c>. <see cref="Keys"/> itself is never
+        /// written.</description></item>
+        /// </list>
+        /// <para>
+        /// Formatting uses the current culture. The result of <see cref="ILocalization.Get"/> is used as it is.
+        /// </para>
+        /// <para>
+        /// <i>Changed in 2.0.0</i> — new. Without a localisation the arguments are now substituted; the
+        /// text presenters used to write the pattern verbatim, braces included (audit WG-6).
+        /// </para>
         /// </remarks>
-        public string Format;
+        /// <param name="localization">The localisation to translate through, or <c>null</c> for none.</param>
+        /// <returns>The text to display. Never <c>null</c> unless <paramref name="localization"/> returns
+        /// <c>null</c> for a model without arguments.</returns>
+        /// <exception cref="FormatException">The pattern is malformed, or refers to an argument
+        /// <see cref="Keys"/> does not have.</exception>
+        /// <exception cref="ArgumentNullException"><see cref="Keys"/> is not <c>null</c> and
+        /// <paramref name="localization"/> returned <c>null</c> for <see cref="Format"/>.</exception>
+        public string Resolve(ILocalization localization)
+        {
+            if (Format == null) return "";
 
-        /// <summary>
-        /// The substitution arguments for <see cref="Format"/>. A string element is itself treated as a
-        /// localisation key and translated before it is substituted; every other element is used as it is.
-        /// </summary>
-        /// <remarks>
-        /// <para>
-        /// <c>null</c> means "no substitution at all", which is not the same as an empty array: with
-        /// <c>null</c> the translated <see cref="Format"/> reaches the view untouched, whereas an empty
-        /// array still runs it through <c>string.Format</c>, so a brace that survived translation then
-        /// throws <see cref="System.FormatException"/>.
-        /// </para>
-        /// <para>
-        /// The array is read, never rewritten — each render allocates a fresh one for the translated values
-        /// — so the same model renders identically however many times it is rendered, and correctly again
-        /// after a language change.
-        /// </para>
-        /// </remarks>
-        public object[] Keys;
+            if (localization == null)
+                return Keys == null ? Format : string.Format(Format, Keys);
+
+            var pattern = localization.Get(Format);
+            if (Keys == null) return pattern;
+
+            var values = new object[Keys.Length];
+            for (var i = 0; i < Keys.Length; i++)
+            {
+                values[i] = Keys[i] is string key ? localization.Get(key) : Keys[i];
+            }
+
+            return string.Format(pattern, values);
+        }
     }
 }

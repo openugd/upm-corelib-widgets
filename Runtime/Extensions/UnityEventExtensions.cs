@@ -1,28 +1,36 @@
 // © 2025 OpenUGD
 
-using OpenUGD;
+using System;
 using UnityEngine.Events;
+using UnityEngine.Scripting.APIUpdating;
 
-namespace UnityEngine.UI
+namespace OpenUGD
 {
     /// <summary>
     /// Scope-bound subscription for Unity's <see cref="UnityEvent"/> family: adds the listener and registers
-    /// its removal on a <see cref="Lifetime"/> in one statement, so the two cannot drift apart.
+    /// its removal on a <see cref="Lifetime"/> in one call, so the two cannot drift apart.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Why this exists.</b> A <see cref="UnityEvent"/> normally outlives the object listening to it, and
-    /// a listener that is never removed keeps its delegate — and everything that delegate captured — alive
-    /// for as long as the event's owner. Binding the <c>AddListener</c> to a scope at the call site makes
-    /// the matching <c>RemoveListener</c> impossible to forget, because there is no path that adds without
-    /// registering the removal.
+    /// A <see cref="UnityEvent"/> usually outlives the object listening to it, and a listener that is never
+    /// removed keeps its delegate, and everything the delegate captured, alive for as long as the event's
+    /// owner. Subscribing through a scope makes the matching <c>RemoveListener</c> impossible to forget.
+    /// Every presenter in this package wires its view this way, on its <c>ViewLifetime</c>.
     /// </para>
     /// <para>
-    /// <b>Five overloads, differing only in arity</b>, mirroring <c>UnityEvent</c> through
-    /// <c>UnityEvent&lt;T0, T1, T2, T3&gt;</c>. They all behave identically; see
-    /// <see cref="Subscribe(UnityEvent, Lifetime, UnityAction)"/> for the semantics.
+    /// The removal targets the event instance passed in, not whatever a property returns later, so it stays
+    /// correct after the component that owns the event has been swapped out or destroyed.
+    /// </para>
+    /// <para>
+    /// Five overloads, one per <see cref="UnityEvent"/> arity, all with the semantics of
+    /// <see cref="Subscribe(UnityEvent, Lifetime, UnityAction)"/>.
+    /// </para>
+    /// <para>
+    /// <i>Changed in 2.0.0</i> — moved from the <c>UnityEngine.UI</c> namespace to <c>OpenUGD</c>, and the
+    /// arguments are validated.
     /// </para>
     /// </remarks>
+    [MovedFrom(true, sourceNamespace: "UnityEngine.UI")]
     public static class UnityEventExtensions
     {
         /// <summary>
@@ -31,86 +39,69 @@ namespace UnityEngine.UI
         /// </summary>
         /// <remarks>
         /// <para>
-        /// <b>On an already-terminated <paramref name="lifetime"/> this is a net no-op</b>: the listener is
-        /// added, then <see cref="Lifetime.AddAction"/> runs the removal immediately, before this method
-        /// returns. That is the point of subscribing through a scope — a caller never has to test
-        /// <see cref="Lifetime.IsTerminated"/> first, and a subscription made during teardown cannot leak.
+        /// On an already-terminated <paramref name="lifetime"/> this is a no-op: nothing stays subscribed. Only
+        /// the runtime listener is affected: listeners wired in the inspector are persistent and are never
+        /// touched.
         /// </para>
         /// <para>
-        /// One closure is allocated per call and stays registered on <paramref name="lifetime"/> until it
-        /// ends, so repeatedly subscribing on a long-lived scope accumulates entries. Subscribe on a
-        /// <c>Lifetime.DefineNested</c> definition and terminate that when the subscription should end
-        /// earlier than the scope — there is deliberately no unsubscribe handle.
-        /// </para>
-        /// <para>
-        /// Nothing is invoked on subscription: the listener sees only invocations that happen after it.
+        /// Nothing is invoked on subscription. One closure stays registered on <paramref name="lifetime"/>
+        /// until it ends, so subscribe on a nested scope (<c>Lifetime.DefineNested</c>) when the listener should
+        /// go away earlier than the scope you have.
         /// </para>
         /// </remarks>
         /// <param name="unityEvent">The event to listen to.</param>
-        /// <param name="lifetime">The <i>subscriber's</i> scope, not the event's. It decides when the
-        /// listener is removed; the event is free to outlive it.</param>
-        /// <param name="listener">The callback. The event holds it — and everything it captured — until the
-        /// scope ends.</param>
-        /// <exception cref="System.NullReferenceException"><paramref name="unityEvent"/> or
-        /// <paramref name="lifetime"/> is <c>null</c>: neither is validated, so the failure is the
-        /// dereference itself rather than a named argument. A <c>null</c> <paramref name="listener"/> is not
-        /// rejected here — it is handed to <c>AddListener</c> unchecked.</exception>
-        public static void Subscribe(
-            this UnityEvent unityEvent,
-            Lifetime lifetime,
-            UnityAction listener
-        )
+        /// <param name="lifetime">The <i>subscriber's</i> scope: the listener is removed when it terminates.
+        /// </param>
+        /// <param name="listener">The callback.</param>
+        /// <exception cref="ArgumentNullException">An argument is <c>null</c>.</exception>
+        public static void Subscribe(this UnityEvent unityEvent, Lifetime lifetime, UnityAction listener)
         {
+            Validate(unityEvent, lifetime, listener);
+            if (lifetime.IsTerminated) return;
+
             unityEvent.AddListener(listener);
-            lifetime.AddAction(() => { unityEvent.RemoveListener(listener); });
+            lifetime.AddAction(() => unityEvent.RemoveListener(listener));
         }
 
         /// <summary>
-        /// The one-argument form of <see cref="Subscribe(UnityEvent, Lifetime, UnityAction)"/>: same
-        /// add-then-register-the-removal, same behaviour on a terminated scope.
+        /// The one-argument form of <see cref="Subscribe(UnityEvent, Lifetime, UnityAction)"/>.
         /// </summary>
         /// <typeparam name="T0">The type of the value the event carries.</typeparam>
         /// <param name="unityEvent">The event to listen to.</param>
         /// <param name="lifetime">The subscriber's scope; the listener is removed when it terminates.</param>
         /// <param name="listener">The callback, invoked with the event's argument.</param>
-        /// <exception cref="System.NullReferenceException"><paramref name="unityEvent"/> or
-        /// <paramref name="lifetime"/> is <c>null</c>; neither is validated, and a <c>null</c>
-        /// <paramref name="listener"/> is not rejected.</exception>
-        public static void Subscribe<T0>(
-            this UnityEvent<T0> unityEvent,
-            Lifetime lifetime,
-            UnityAction<T0> listener
-        )
+        /// <exception cref="ArgumentNullException">An argument is <c>null</c>.</exception>
+        public static void Subscribe<T0>(this UnityEvent<T0> unityEvent, Lifetime lifetime,
+            UnityAction<T0> listener)
         {
+            Validate(unityEvent, lifetime, listener);
+            if (lifetime.IsTerminated) return;
+
             unityEvent.AddListener(listener);
-            lifetime.AddAction(() => { unityEvent.RemoveListener(listener); });
+            lifetime.AddAction(() => unityEvent.RemoveListener(listener));
         }
 
         /// <summary>
-        /// The two-argument form of <see cref="Subscribe(UnityEvent, Lifetime, UnityAction)"/>: same
-        /// add-then-register-the-removal, same behaviour on a terminated scope.
+        /// The two-argument form of <see cref="Subscribe(UnityEvent, Lifetime, UnityAction)"/>.
         /// </summary>
         /// <typeparam name="T0">The type of the event's first value.</typeparam>
         /// <typeparam name="T1">The type of the event's second value.</typeparam>
         /// <param name="unityEvent">The event to listen to.</param>
         /// <param name="lifetime">The subscriber's scope; the listener is removed when it terminates.</param>
         /// <param name="listener">The callback, invoked with the event's arguments.</param>
-        /// <exception cref="System.NullReferenceException"><paramref name="unityEvent"/> or
-        /// <paramref name="lifetime"/> is <c>null</c>; neither is validated, and a <c>null</c>
-        /// <paramref name="listener"/> is not rejected.</exception>
-        public static void Subscribe<T0, T1>(
-            this UnityEvent<T0, T1> unityEvent,
-            Lifetime lifetime,
-            UnityAction<T0, T1> listener
-        )
+        /// <exception cref="ArgumentNullException">An argument is <c>null</c>.</exception>
+        public static void Subscribe<T0, T1>(this UnityEvent<T0, T1> unityEvent, Lifetime lifetime,
+            UnityAction<T0, T1> listener)
         {
+            Validate(unityEvent, lifetime, listener);
+            if (lifetime.IsTerminated) return;
+
             unityEvent.AddListener(listener);
-            lifetime.AddAction(() => { unityEvent.RemoveListener(listener); });
+            lifetime.AddAction(() => unityEvent.RemoveListener(listener));
         }
 
         /// <summary>
-        /// The three-argument form of <see cref="Subscribe(UnityEvent, Lifetime, UnityAction)"/>: same
-        /// add-then-register-the-removal, same behaviour on a terminated scope.
+        /// The three-argument form of <see cref="Subscribe(UnityEvent, Lifetime, UnityAction)"/>.
         /// </summary>
         /// <typeparam name="T0">The type of the event's first value.</typeparam>
         /// <typeparam name="T1">The type of the event's second value.</typeparam>
@@ -118,23 +109,20 @@ namespace UnityEngine.UI
         /// <param name="unityEvent">The event to listen to.</param>
         /// <param name="lifetime">The subscriber's scope; the listener is removed when it terminates.</param>
         /// <param name="listener">The callback, invoked with the event's arguments.</param>
-        /// <exception cref="System.NullReferenceException"><paramref name="unityEvent"/> or
-        /// <paramref name="lifetime"/> is <c>null</c>; neither is validated, and a <c>null</c>
-        /// <paramref name="listener"/> is not rejected.</exception>
-        public static void Subscribe<T0, T1, T2>(
-            this UnityEvent<T0, T1, T2> unityEvent,
-            Lifetime lifetime,
-            UnityAction<T0, T1, T2> listener
-        )
+        /// <exception cref="ArgumentNullException">An argument is <c>null</c>.</exception>
+        public static void Subscribe<T0, T1, T2>(this UnityEvent<T0, T1, T2> unityEvent, Lifetime lifetime,
+            UnityAction<T0, T1, T2> listener)
         {
+            Validate(unityEvent, lifetime, listener);
+            if (lifetime.IsTerminated) return;
+
             unityEvent.AddListener(listener);
-            lifetime.AddAction(() => { unityEvent.RemoveListener(listener); });
+            lifetime.AddAction(() => unityEvent.RemoveListener(listener));
         }
 
         /// <summary>
-        /// The four-argument form of <see cref="Subscribe(UnityEvent, Lifetime, UnityAction)"/>, and the
-        /// widest one Unity's <c>UnityEvent</c> generics go: same add-then-register-the-removal, same
-        /// behaviour on a terminated scope.
+        /// The four-argument form of <see cref="Subscribe(UnityEvent, Lifetime, UnityAction)"/>, the widest
+        /// <see cref="UnityEvent"/> goes.
         /// </summary>
         /// <typeparam name="T0">The type of the event's first value.</typeparam>
         /// <typeparam name="T1">The type of the event's second value.</typeparam>
@@ -143,17 +131,25 @@ namespace UnityEngine.UI
         /// <param name="unityEvent">The event to listen to.</param>
         /// <param name="lifetime">The subscriber's scope; the listener is removed when it terminates.</param>
         /// <param name="listener">The callback, invoked with the event's arguments.</param>
-        /// <exception cref="System.NullReferenceException"><paramref name="unityEvent"/> or
-        /// <paramref name="lifetime"/> is <c>null</c>; neither is validated, and a <c>null</c>
-        /// <paramref name="listener"/> is not rejected.</exception>
-        public static void Subscribe<T0, T1, T2, T3>(
-            this UnityEvent<T0, T1, T2, T3> unityEvent,
-            Lifetime lifetime,
-            UnityAction<T0, T1, T2, T3> listener
-        )
+        /// <exception cref="ArgumentNullException">An argument is <c>null</c>.</exception>
+        public static void Subscribe<T0, T1, T2, T3>(this UnityEvent<T0, T1, T2, T3> unityEvent,
+            Lifetime lifetime, UnityAction<T0, T1, T2, T3> listener)
         {
+            Validate(unityEvent, lifetime, listener);
+            if (lifetime.IsTerminated) return;
+
             unityEvent.AddListener(listener);
-            lifetime.AddAction(() => { unityEvent.RemoveListener(listener); });
+            lifetime.AddAction(() => unityEvent.RemoveListener(listener));
+        }
+
+        private static void Validate(UnityEventBase unityEvent, Lifetime lifetime, Delegate listener)
+        {
+            if (unityEvent == null)
+                throw new ArgumentNullException(nameof(unityEvent), $"{nameof(unityEvent)} can't be null");
+            if (lifetime == null)
+                throw new ArgumentNullException(nameof(lifetime), $"{nameof(lifetime)} can't be null");
+            if (listener == null)
+                throw new ArgumentNullException(nameof(listener), $"{nameof(listener)} can't be null");
         }
     }
 }

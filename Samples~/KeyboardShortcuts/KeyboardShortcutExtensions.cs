@@ -1,6 +1,6 @@
 using System;
 using System.Collections;
-using OpenUGD.Core.Presenters;
+using OpenUGD.Presenters;
 using OpenUGD.Utils;
 using UnityEngine;
 #if ENABLE_INPUT_SYSTEM && OPENUGD_INPUT_SYSTEM_PACKAGE

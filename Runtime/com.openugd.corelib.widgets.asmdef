@@ -2,6 +2,7 @@
     "name": "com.openugd.corelib.widgets",
     "rootNamespace": "OpenUGD",
     "references": [
+        "com.openugd.presenters",
         "com.openugd.corelib",
         "com.openugd.context",
         "com.openugd.lifetime",

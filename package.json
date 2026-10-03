@@ -10,7 +10,7 @@
     "email": "dorofiy.kolya@gmail.com",
     "url": "https://github.com/openugd"
   },
-  "description": "Presenters that bind Unity uGUI widgets (Button, Text, Image, RawImage, Slider, Toggle, TMP_Text, TMP_InputField) to a model. Each presenter is handed a view it does not create, wires the Unity event callbacks when that view is attached, renders the model in an idempotent OnRefresh, and unsubscribes automatically when its Lifetime terminates. TextMeshPro text and input-field presenters are included, along with hyperlink text, gesture detection and resource-prefab presenters.",
+  "description": "Presenters that bind Unity uGUI widgets (Button, Text, Image, RawImage, Slider, Toggle, TMP_Text, TMP_InputField) to a model. Each presenter is handed a view it does not create, wires the view's Unity events for as long as that view is attached, renders the model in an idempotent OnRefresh that never reports itself as a change, and exposes the widget's events as lifetime-scoped signals. Text presenters localise through an optional ILocalization. TextMeshPro comes from com.unity.ugui 2.0, so no com.unity.textmeshpro dependency is needed. Also includes hyperlink text, gesture detection and resource-prefab presenters.",
   "keywords": [
     "corelib",
     "presenters",

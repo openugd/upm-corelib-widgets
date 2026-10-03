@@ -1,198 +1,139 @@
 using System;
 using TMPro;
 
-namespace OpenUGD.Core.Presenters
+namespace OpenUGD.Presenters
 {
     /// <summary>
-    /// Drives a <see cref="TMP_InputField"/> from a <see cref="string"/> model, and reports every change to
-    /// the field's text back through a signal.
+    /// Drives a <see cref="TMP_InputField"/> from a <see cref="string"/> model, and reports every change the
+    /// field makes to its text through the <see cref="ValueChanged"/> signal.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>The binding is one-way.</b> The model is pushed into the field on every refresh; typing never
-    /// writes back, so <see cref="Presenter{TView,TModel}.Model"/> keeps whatever was last set while
-    /// <see cref="InputValue"/> moves with the user. Read <see cref="InputValue"/> for what is on screen,
-    /// and call <c>SetModel</c> when you mean to overwrite it.
+    /// <b>One-way.</b> The model is written into the field on every render; typing never writes back, so
+    /// <see cref="Presenter{TView,TModel}.Model"/> keeps what was last set while <see cref="InputValue"/>
+    /// follows the user. Read <see cref="InputValue"/> for what is on screen. Every <c>SetModel</c> renders,
+    /// and so replaces what the user typed.
     /// </para>
     /// <para>
-    /// <b>A model-driven write is indistinguishable from typing.</b> Rendering assigns the field's
-    /// <c>text</c>, which is what TextMeshPro raises <c>onValueChanged</c> from, so
-    /// <see cref="SubscribeOnValueChanged"/> handlers also observe the values this presenter writes. Nothing
-    /// is raised for an assignment of the value the field already holds, so a redundant refresh stays quiet;
-    /// a handler that answers by setting a new model must still be written for re-entry.
+    /// <b>Rendering never echoes.</b> The text is written with <c>TMP_InputField.SetTextWithoutNotify</c>, and
+    /// <see cref="ValueChanged"/> ignores any change raised while the presenter renders. The second guard is
+    /// there because TextMeshPro raises <c>onValueChanged</c> from <c>SetTextWithoutNotify</c> anyway in the
+    /// Editor outside Play Mode; other listeners on the field see that notification, <see cref="ValueChanged"/>
+    /// does not.
     /// </para>
     /// <para>
-    /// <b>One view per presenter</b>, for the same reason as <see cref="ButtonPresenter"/>: the TextMeshPro
-    /// listener is removed when <see cref="Presenter.Lifetime"/> ends rather than when the view is detached,
-    /// and the removal reads <see cref="Presenter{TView}.View"/> as it stands at that moment.
+    /// <b>One listener per attached view</b>, scoped to its <c>ViewLifetime</c>, so swapping or detaching the
+    /// view moves or removes the listener.
     /// </para>
     /// </remarks>
     public class InputFieldPresenter : Presenter<TMP_InputField, string>
     {
-        private Signal<string> _onValueChangedSignal;
+        private Signal<string> _valueChanged;
+        private bool _rendering;
 
         /// <summary>
-        /// What the field holds right now, user edits included — which is what makes it, and not the model,
-        /// the thing to read when submitting a form. Empty reads as <c>""</c>, never as <c>null</c>.
+        /// Fires with the field's new text for every change the attached field reports — the user typing, or
+        /// code assigning <c>TMP_InputField.text</c> — and never for the presenter's own render.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Created on first read and scoped to <see cref="Presenter.Lifetime"/>: every subscription ends at
+        /// the earlier of the subscriber's lifetime and this presenter closing. Nothing is delivered on
+        /// subscription; read <see cref="InputValue"/> for the current text.
+        /// </para>
+        /// <para>
+        /// <i>Changed in 2.0.0</i> — replaces <c>SubscribeOnValueChanged(Lifetime, Action&lt;string&gt;)</c>:
+        /// write <c>ValueChanged.Subscribe(lifetime, handler)</c>. It no longer reports the presenter's own
+        /// renders.
+        /// </para>
+        /// </remarks>
+        /// <exception cref="InvalidOperationException">Read before the presenter is attached.</exception>
+        public ISignal<string> ValueChanged => _valueChanged ??= new Signal<string>(Lifetime);
+
+        /// <summary>
+        /// What the field holds right now, user edits included. Empty reads as <c>""</c>.
         /// </summary>
         /// <exception cref="NullReferenceException">No view is attached.</exception>
         public string InputValue => View.text;
 
         /// <summary>
-        /// Wires the change listener for the view just attached, registers its removal on
-        /// <see cref="Presenter.Lifetime"/>, and pushes the current model into the field. That push is
-        /// redundant — the base class refreshes immediately after this returns — and harmless, because
-        /// rendering is idempotent.
+        /// Adds the change listener to the attached field, scoped to its <c>ViewLifetime</c>.
         /// </summary>
-        protected override void OnViewAdded()
-        {
-            View.onValueChanged.AddListener(ValueChangedHandler);
-            Lifetime.AddAction(() => { View.onValueChanged.RemoveListener(ValueChangedHandler); });
-
-            Refresh();
-        }
+        protected override void OnViewAdded() => View.onValueChanged.Subscribe(ViewLifetime, OnValueChanged);
 
         /// <summary>
-        /// Writes the model into the field, mapping a <c>null</c> model to an empty field rather than
-        /// leaving the previous text standing. Idempotent.
+        /// Writes the model into the field without notification; a <c>null</c> model empties it. Idempotent.
         /// </summary>
-        /// <remarks>
-        /// This overwrites whatever the user has typed, so refresh only when discarding their edits is what
-        /// you mean: every <c>SetModel</c> re-renders, including one that sets the value the model already
-        /// holds.
-        /// </remarks>
-        protected override void OnRefresh() => Refresh();
-
-        private void Refresh()
+        protected override void OnRefresh()
         {
-            if (View != null)
+            _rendering = true;
+            try
             {
-                if (Model != null)
-                {
-                    View.text = Model;
-                }
-                else
-                {
-                    View.text = "";
-                }
+                View.SetTextWithoutNotify(Model ?? "");
+            }
+            finally
+            {
+                _rendering = false;
             }
         }
 
-        private void ValueChangedHandler(string value)
+        private void OnValueChanged(string value)
         {
-            _onValueChangedSignal?.Fire(value);
-        }
-
-        /// <summary>
-        /// Observes every change to the field's text for as long as <paramref name="lifetime"/> lives — user
-        /// edits and this presenter's own model-driven writes alike.
-        /// </summary>
-        /// <remarks>
-        /// <para>
-        /// The backing <see cref="Signal{T1}"/> is created on first use and scoped to
-        /// <see cref="Presenter.Lifetime"/>, so a presenter nobody observes allocates nothing, and every
-        /// subscription ends at the earlier of <paramref name="lifetime"/> and this presenter closing.
-        /// Handlers run in subscription order, and one that throws does not stop the rest.
-        /// </para>
-        /// <para>
-        /// Nothing is delivered on subscription — a handler sees changes from the next one onwards — so read
-        /// <see cref="InputValue"/> as well if you need the text as it already stands. Subscribing on a scope
-        /// that has already terminated registers nothing and reports nothing.
-        /// </para>
-        /// </remarks>
-        /// <param name="lifetime">The <i>subscriber's</i> scope, not the presenter's: the handler is
-        /// detached when it terminates.</param>
-        /// <param name="listener">Invoked with the field's new text on every change.</param>
-        /// <exception cref="ArgumentNullException"><paramref name="lifetime"/> or
-        /// <paramref name="listener"/> is <c>null</c>.</exception>
-        /// <exception cref="InvalidOperationException">The presenter has not been attached yet, so there is
-        /// no lifetime to scope the signal to.</exception>
-        public void SubscribeOnValueChanged(Lifetime lifetime, Action<string> listener)
-        {
-            if (_onValueChangedSignal == null)
-            {
-                _onValueChangedSignal = new Signal<string>(Lifetime);
-            }
-
-            _onValueChangedSignal.Subscribe(lifetime, listener);
+            if (_rendering) return;
+            _valueChanged?.Fire(value);
         }
     }
 
     /// <summary>
-    /// Building an <see cref="InputFieldPresenter"/> in one call, with or without a length cap on the view.
+    /// One-call construction of an <see cref="InputFieldPresenter"/>, with or without a character limit.
     /// </summary>
-    public static class InputFieldExtensions
+    public static class InputFieldPresenterExtensions
     {
         /// <summary>
-        /// Creates an <see cref="InputFieldPresenter"/>, attaches it to <paramref name="parent"/> and seeds
-        /// <paramref name="view"/> with <paramref name="value"/>.
+        /// Creates an <see cref="InputFieldPresenter"/> under <paramref name="parent"/>, sets its model to
+        /// <paramref name="value"/> and then its view to <paramref name="view"/>, which renders it once.
         /// </summary>
-        /// <remarks>
-        /// The field is emptied when the view attaches and then filled with <paramref name="value"/>, so
-        /// anything already listening to the view's own <c>onValueChanged</c> sees whichever of those two
-        /// writes actually changes the text — a field that was already empty raises nothing when it is
-        /// emptied again. Subscribing through <see cref="InputFieldPresenter.SubscribeOnValueChanged"/>
-        /// afterwards sees none of it, since the signal does not exist until the first subscription.
-        /// </remarks>
-        /// <param name="parent">The presenter the new one is attached to; it closes when
-        /// <paramref name="parent"/> does.</param>
-        /// <param name="view">The field to drive. It must outlive the returned presenter. A <c>null</c>
-        /// view leaves the presenter attached but inert: no listener is wired and nothing is
-        /// written.</param>
-        /// <param name="value">The initial text. <c>null</c> leaves the field empty.</param>
-        /// <returns>The attached presenter, for
-        /// <see cref="InputFieldPresenter.SubscribeOnValueChanged"/> and
-        /// <see cref="InputFieldPresenter.InputValue"/>.</returns>
-        /// <exception cref="InvalidOperationException"><paramref name="parent"/> has not been attached yet,
-        /// or its lifetime has already terminated.</exception>
+        /// <param name="parent">The presenter to attach to. It must be attached and alive; the new presenter
+        /// closes no later than it does.</param>
+        /// <param name="view">The field. <c>null</c> attaches a presenter that renders when a view is set.
+        /// </param>
+        /// <param name="value">The initial text. <c>null</c> empties the field.</param>
+        /// <returns>The attached presenter.</returns>
+        /// <exception cref="InvalidOperationException"><paramref name="parent"/> has not been attached, or has
+        /// closed.</exception>
         public static InputFieldPresenter AddInputField(this Presenter parent, TMP_InputField view, string value)
         {
-            var presenter = new InputFieldPresenter();
-            parent.AddPresenter(presenter);
-
-            presenter.SetView(view);
+            var presenter = parent.AddPresenter(new InputFieldPresenter());
             presenter.SetModel(value);
-
+            presenter.SetView(view);
             return presenter;
         }
 
         /// <summary>
-        /// As <see cref="AddInputField(Presenter,TMP_InputField,string)"/>, but also caps how much the user
-        /// can type into <paramref name="view"/>.
+        /// As <see cref="AddInputField(Presenter,TMP_InputField,string)"/>, and also sets the field's
+        /// <c>characterLimit</c> to <paramref name="maxLength"/>.
         /// </summary>
         /// <remarks>
-        /// <para>
-        /// The cap is written straight onto the view's <c>characterLimit</c>, before the presenter exists,
-        /// and is never re-applied: it is a property of the field, not of the model, so it survives every
-        /// refresh and outlives the presenter that set it. Nothing restores the field's previous limit.
-        /// </para>
-        /// <para>
-        /// The parameter's name is misspelt in the signature; it is kept as-is because correcting it would
-        /// break every caller that passes it by name.
-        /// </para>
+        /// The limit is a property of the field, not of the model: it is written once, before the view is
+        /// attached, and outlives the presenter. It constrains what the user can type, not the text the
+        /// presenter writes.
         /// </remarks>
-        /// <param name="parent">The presenter the new one is attached to; it closes when
-        /// <paramref name="parent"/> does.</param>
-        /// <param name="view">The field to drive. It must outlive the returned presenter.</param>
-        /// <param name="value">The initial text. <c>null</c> leaves the field empty.</param>
-        /// <param name="maxLenght">The value for the field's <c>characterLimit</c>, constraining what the
-        /// user may type. <c>0</c> is TextMeshPro's "no limit", and a negative value is clamped to it, so
-        /// this cannot fail — it can only fail to constrain.</param>
+        /// <param name="parent">The presenter to attach to. It must be attached and alive.</param>
+        /// <param name="view">The field. <c>null</c> attaches a presenter that renders when a view is set, and
+        /// sets no limit.</param>
+        /// <param name="value">The initial text. <c>null</c> empties the field.</param>
+        /// <param name="maxLength">The field's <c>characterLimit</c>. <c>0</c> is TextMeshPro's "no limit",
+        /// and TextMeshPro clamps a negative value to it.</param>
         /// <returns>The attached presenter.</returns>
-        /// <exception cref="NullReferenceException"><paramref name="view"/> is <c>null</c>: the limit is
-        /// written before anything else happens.</exception>
-        /// <exception cref="InvalidOperationException"><paramref name="parent"/> has not been attached yet,
-        /// or its lifetime has already terminated.</exception>
+        /// <exception cref="InvalidOperationException"><paramref name="parent"/> has not been attached, or has
+        /// closed.</exception>
         public static InputFieldPresenter AddInputField(this Presenter parent, TMP_InputField view, string value,
-            int maxLenght)
+            int maxLength)
         {
-            view.characterLimit = maxLenght;
-            var presenter = new InputFieldPresenter();
-            parent.AddPresenter(presenter);
-
-            presenter.SetView(view);
+            var presenter = parent.AddPresenter(new InputFieldPresenter());
+            if (view != null) view.characterLimit = maxLength;
             presenter.SetModel(value);
-
+            presenter.SetView(view);
             return presenter;
         }
     }

@@ -1,7 +1,5 @@
 # Changelog
 
-### corelib widgets
-
 All notable changes to this package are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
@@ -9,238 +7,93 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [2.0.0]
-
-The pattern is renamed. `Widget` was inaccurate in the one place it mattered:
-`ButtonWidget : Widget<Button, Action>` claimed to be a widget while wrapping something that *is* a
-widget in every other UI framework. These types are handed a view rather than creating one, which is the
-definition of a presenter (MVP, passive view), so that is what they are called now.
-
-The package ID `com.openugd.corelib.widgets` is **unchanged** and will not change: the ID names what
-these presenters bind to — Unity's widgets — while the types name what they are. No `manifest.json`
-edit is needed beyond the version.
-
-Almost everything below is breaking. Each breaking entry ends with the change to make; the README's
-*Upgrading from 0.5.0* table lists them all side by side.
+Version 2.0.0, the first of the synchronized OpenUGD 2.x family, following 0.5.0. Almost every change is breaking;
+the README's "Upgrading to 2.0" section walks through them with before and after code.
 
 ### Added
-
-- **`ButtonPresenter.Clicked`, `TogglePresenter.Toggled`, `InputFieldPresenter.ValueChanged`,
-  `SliderFloatPresenter.ValueChanged` and `SliderIntPresenter.ValueChanged`**: subscribe-only `ISignal`
-  properties, created on first read and scoped to the presenter's `Lifetime`. Reading one before the
-  presenter is attached throws `InvalidOperationException`. They replace the hand-written subscribe methods
-  (see *Removed*), and with `SliderIntPresenter`'s, which had only its model's callback, every input
-  presenter reports its changes through a signal (audit WG-8). Where the model also carries a callback
-  (`ButtonPresenter`, `ToggleModel`, `SliderIntModel`), the callback runs first.
-- **`TextModel.Resolve(ILocalization)`**: the one rule `TextPresenter`, `TMPPresenter` and
-  `HyperlinkTextPresenter` render by. It is public so a presenter of your own can render text the same way.
-- **`HyperlinkText.LinkClicked`, `HyperlinkText.OpenUrls` and `HyperlinkClick`** (audit WG-11): a click on a
-  link is reported first, with a `HyperlinkClick` a handler can mark `Handled` to keep the link from being
-  opened, and the serialized `OpenUrls` (default `true`) turns opening off altogether. Two `protected virtual`
-  seams for subclasses: `FindLinkId` (the hit test) and `OpenUrl` (`Application.OpenURL` by default).
-- **`TextModelPresenter<TView>`** (audit WG-7): the one rendering and localisation design of the text
-  presenters — the optional `ILocalization` and `ILocalizationChanged`, the re-render on a language change,
-  and the render through `TextModel.Resolve` — which `TextPresenter`, `TMPPresenter` and
-  `HyperlinkTextPresenter` now derive from instead of each carrying a copy. A presenter for a text widget of
-  your own derives from it and implements `Render(string)`.
-- **The Keyboard Shortcuts sample** (`Samples~/KeyboardShortcuts`, listed under `samples` in
-  `package.json`), which replaces the removed `AddKeyboard`. It is a recipe you copy into your project,
-  not an API: `SubscribeOnKeyDown(presenter, coroutines, key, onKeyDown)`, about 25 lines, plus an
-  example presenter. It reads the Input System when `ENABLE_INPUT_SYSTEM` is defined *and*
-  `com.unity.inputsystem` is installed (an `OPENUGD_INPUT_SYSTEM_PACKAGE` symbol from the sample asmdef's
-  `versionDefines`, because `ENABLE_INPUT_SYSTEM` alone is defined without the package), otherwise the
-  Input Manager under `ENABLE_LEGACY_INPUT_MANAGER`, and otherwise starts nothing. It stops its coroutine
-  when the presenter's `Lifetime` terminates and re-checks that lifetime after every frame's wait, so it
-  never fires after the presenter has closed.
-- **A test suite**, `com.openugd.corelib.widgets.tests` (EditMode). The tests that need no engine cover the
-  helpers, the signals, `TextModel.Resolve`, `TextModelPresenter`, `UnityEventExtensions`, the interval
-  updater, and the gesture rules and signals behind `UIGestureDetector`; the tests marked `RequiresUnity`
-  drive real uGUI components, `UIGestureDetector` and `HyperlinkText`, and cover the fixes below.
-- This changelog.
-
-### Moved
-
-- **Breaking: `ILocalization` and `ILocalizationChanged` move here from `com.openugd.corelib`,** whose
-  `OpenUGD.Core` namespace they were in, into `OpenUGD.Presenters`. The text presenters are their only
-  consumers. They keep their script GUIDs (`811ccaf8d3814cd79d54b3644f8bcee2`,
-  `05cafe5169154497a5743cc363799b14`). Migration: an implementation references
-  `com.openugd.corelib.widgets` and writes `using OpenUGD.Presenters;`.
+- `Clicked`, `Toggled` and `ValueChanged` on the button, toggle, slider and input field presenters: subscribe-only
+  `ISignal` properties, created on first read and ending with the presenter. `SliderIntPresenter` had no change
+  report but its model's callback.
+- `TextModel.Resolve(ILocalization)`, the rule the text presenters render by, and `TextModelPresenter<TView>`,
+  their base, for a text widget of your own.
+- `HyperlinkText.LinkClicked`, `HyperlinkClick.Handled` and `OpenUrls`: a click on a link is reported before
+  anything is opened, and a handler can refuse it. `FindLinkId` and `OpenUrl` can be overridden.
+- Samples: Settings Screen, Recycled List, Gestures and Links, Keyboard Shortcuts.
+- An EditMode test assembly, `com.openugd.corelib.widgets.tests`.
+- XML documentation on every public member.
 
 ### Changed
-
-- **Breaking: every type renamed.** `Widget` -> `Presenter` throughout, including the generic arities
-  `Presenter<TView>` and `Presenter<TView, TModel>`, and every leaf: `ButtonPresenter`,
-  `TextPresenter`, `TMPPresenter`, `ImagePresenter`, `RawImagePresenter`, `InputFieldPresenter`,
-  `SliderFloatPresenter`, `SliderIntPresenter`, `TogglePresenter`, `HyperlinkTextPresenter`,
-  `GesturePresenter`, `ResourcePrefabPresenter`, plus their `…Extensions` classes.
-- **Breaking: `WidgetView` is now `ViewBehaviour`** (in `com.openugd.corelib`). It is a view, not a
-  presenter, and `PresenterView` would have implied otherwise.
-- **Breaking: namespace `OpenUGD.Core.Widgets` is now `OpenUGD.Presenters`**, the namespace of the
-  `Presenter` base class in `com.openugd.corelib` 2.0.0. Migration: `using OpenUGD.Presenters;`.
-- **Breaking: `ToggleWidgetModel` -> `ToggleModel`, `SliderIntWidgetModel` -> `SliderIntModel`.** The
-  middle word carried no information in either name.
-- **Breaking: `parent.AddWidget(w)` -> `parent.AddPresenter(p)`.**
-- **Breaking: a tree is rooted with an `IPresenterFactory`.** `Presenter.Context` is gone from corelib.
-  Migration: `new Presenter.Root(lifetime, new ContextPresenterFactory(context))`.
-- **Breaking: `UnityEventExtensions` and `ButtonExtensions` leave the `UnityEngine.UI` namespace for
-  `OpenUGD`** (audit WG-19), carrying `[MovedFrom(true, sourceNamespace: "UnityEngine.UI")]`. They also
-  reject `null` arguments with `ArgumentNullException` instead of failing later with a
-  `NullReferenceException`, and `Subscribe` on a terminated lifetime no longer touches the event. Migration:
-  `using OpenUGD;`.
-- **Breaking: one naming rule for the helpers.** `AddFloatSlider` -> `AddSliderFloat`, matching
-  `AddSliderInt`. The helper classes are named after their presenter: `InputFieldExtensions` ->
-  `InputFieldPresenterExtensions`, `SliderPresenterExtensions` -> `SliderFloatPresenterExtensions`,
-  `HyperlinkPresenterExtensions` -> `HyperlinkTextPresenterExtensions`. The hyperlink format overload
-  `AddText(this Presenter, HyperlinkText, string, params object[])` is now `AddHyperlinkText`. The
-  `maxLenght` parameter of `AddInputField` is spelt `maxLength`. Migration: rename the call, or the
-  argument name if you pass it by name.
-- **Breaking: `HyperlinkTextPresenter` renders a `TextModel` and localises like the other text
-  presenters** (audit WG-7). It injects `ILocalization` and `ILocalizationChanged` with
-  `[Inject(Optional = true)]`, translates on every render instead of once inside the helper, and renders
-  again on a language change. Its format overload now translates the format too, not only the arguments,
-  and an empty translation is no longer replaced by the key. Migration: a `string` still converts to a
-  `TextModel`; give a translation of the format its own `<link>` tags and placeholders.
-- **Breaking: `TMPPresenterIntervalUpdateExtensions` is `IntervalUpdateExtensions`, and its
-  `WithIntervalUpdate` takes the `ICoroutineProvider` as its second parameter** instead of resolving it from
-  the removed `Presenter.Context`; its first parameter is named `presenter` instead of `parent`. It drives any
-  `Presenter<TView, TModel>` from a callback returning that `TModel` (audit WG-13), not only a
-  `TMPPresenter`; a presenter whose model is a `TextModel` also takes a callback returning a `string`. It
-  returns the presenter as `Presenter<TView, TModel>`. Arguments are validated before anything starts, a
-  coroutine that cannot be started no longer leaves the timer's scope behind, and on a presenter that has
-  already closed nothing is started. The first update now happens inside the call after the coroutine has
-  started, so an exception from it reaches the caller (and stops the timer) instead of being logged by
-  Unity. Migration: inject an `ICoroutineProvider` into the calling presenter and write
-  `label.WithIntervalUpdate(_coroutines, text)`; a variable that held the result as a `TMPPresenter` keeps
-  the presenter it called this on instead.
-- **Breaking: `UIGestureDetector`'s five signals are subscribe-only `ISignal` properties** instead of
-  `Signal` (decision 8), so only the detector raises them. It now follows a pointer that leaves the element
-  through `IDragHandler`, which means a `ScrollRect` or other drag handler above it no longer receives drags
-  that start on it. A press that a pointer-down handler below the detector takes instead (a `Button` inside
-  the gesture area) is not the detector's: through the new `IInitializePotentialDragHandler` it hands that
-  drag to the drag handler above it, or to none, as if the detector were not there: the button keeps its
-  click, or a `ScrollRect` above takes the drag, as it always did. The per-frame `Update` is gone: a swipe is
-  tested on each pointer event. `OnDisable` (which abandons a gesture in progress) and `OnDestroy` are
-  `protected virtual`. Migration: code that called
-  `Fire()` on a detector's signal drives its pointer handlers instead; a subclass that declared its own
-  `OnDestroy` or `OnDisable` overrides it and calls `base`.
-- **Breaking: the `AddSliderFloat(…, onChange)` overloads reject a `null` handler** with
-  `ArgumentNullException` before attaching anything. They subscribe `onChange` to
-  `SliderFloatPresenter.ValueChanged`. Migration: pass a handler, or call the overload without one.
-- **Every `Add…` helper attaches, then sets the model, then sets the view** (audit P0-5, WG-18), so a
-  presenter renders once with both in place. Before, most set the view first and rendered an empty model.
-- **Rendering never reports a change** (audit WG-8). `TogglePresenter`, `SliderFloatPresenter`,
-  `SliderIntPresenter` and `InputFieldPresenter` write with Unity's `…WithoutNotify` setters, and the int
-  slider and the input field also ignore what the widget raises while they render. A model callback or a
-  signal now reports only the user and code that writes the widget directly. Migration: drop any code that
-  filtered out the echo of your own `SetModel`.
-- **`SliderIntPresenter` turns on `Slider.wholeNumbers`** (audit WG-8), so the slider reports whole numbers.
-  `SliderIntModel.OnValueChanged` is still an `Action<float>`.
-- **View listeners belong to the view** (audit WG-4, WG-30). Every presenter adds its Unity listeners in
-  `OnViewAdded` with `UnityEventExtensions.Subscribe` on `ViewLifetime`, so replacing the view moves them,
-  detaching removes them, and re-attaching adds them exactly once.
-- **No presenter renders in `OnViewAdded`** (audit WG-5); the private `Refresh()` helpers that hid
-  `Presenter<TView>.Refresh` (three CS0108 warnings) are gone.
-- **A `null` model is safe** in every presenter's render and event handlers. `TogglePresenter` and
-  `SliderIntPresenter` leave the widget as it is.
-- **Localization is taken through `[Inject(Optional = true)]`** on `TextPresenter`, `TMPPresenter` and
-  `HyperlinkTextPresenter` rather than resolved on every render. With no `ILocalization` registered the
-  model renders untranslated, and the build does not fail — a project without localization is a perfectly
-  good project.
-- **Breaking for explicit implementations: `ILocalizationChanged` is an `ISignal`** (decision 8) and declares
-  no member of its own. The method it declared had the same signature as `ISignal.Subscribe`, so callers and
-  implicit implementations compile unchanged, and a `Signal` that declares the interface is now a complete
-  implementation. Migration: an explicit implementation renames `void ILocalizationChanged.Subscribe(…)` to
+- **`Widget` is renamed `Presenter` throughout**: `ButtonWidget` -> `ButtonPresenter` and the rest, `WidgetView` ->
+  `ViewBehaviour`, `AddWidget` -> `AddPresenter`, namespace `OpenUGD.Core.Widgets` -> `OpenUGD.Presenters`. The
+  base classes are in `com.openugd.corelib` 2.0.
+- **`ToggleWidgetModel` -> `ToggleModel`, `SliderIntWidgetModel` -> `SliderIntModel`.**
+- **Helper classes are named after their presenter**: `InputFieldExtensions`, `SliderWidgetExtensions`,
+  `HyperlinkWidgetExtensions` and `TMPWidgetIntervalUpdateExtensions` -> `InputFieldPresenterExtensions`,
+  `SliderFloatPresenterExtensions`, `HyperlinkTextPresenterExtensions` and `IntervalUpdateExtensions`.
+- **`AddFloatSlider` -> `AddSliderFloat`; the hyperlink `AddText(view, format, keys)` -> `AddHyperlinkText`;
+  the `maxLenght` parameter -> `maxLength`.**
+- **A tree is rooted with an `IPresenterFactory`**: `new Presenter.Root(lifetime, new ContextPresenterFactory(context))`.
+- **`ILocalization` and `ILocalizationChanged` moved here** from `com.openugd.corelib` (`OpenUGD.Core` ->
+  `OpenUGD.Presenters`) with their script GUIDs, and are optional injections.
+- **`ILocalizationChanged` is an `ISignal`.** Affects you if you implemented it explicitly: write
   `void ISignal.Subscribe(…)`.
-- **No dependency on `com.unity.textmeshpro`** (decision 5). On Unity 6, TextMeshPro ships inside
-  `com.unity.ugui` 2.x as the `Unity.TextMeshPro` assembly, and `com.unity.textmeshpro` is a deprecated
-  5.0.0 shim. The package depends on `com.unity.ugui` 2.0.0, and the TMP presenters stay in its one runtime
-  assembly. No released version ever declared `com.unity.textmeshpro`.
-- **Minimum editor raised to Unity 6000.0** (`unity` / `unityRelease`).
-- **Dependencies:** `com.openugd.corelib`, `com.openugd.context`, `com.openugd.lifetime` and
-  `com.openugd.signal` 2.0.0, and `com.unity.ugui` 2.0.0, each declared in `package.json`. The version moves
-  to 2.0.0 with the rest of the family. The runtime asmdef references `com.openugd.presenters` (for
-  `Presenter`) as well as `com.openugd.corelib` (for `ICoroutineProvider`); the Keyboard Shortcuts sample's
-  asmdef does too. Migration: an asmdef of yours that uses these presenters adds `com.openugd.presenters`.
-- **Licence changed from MIT to Apache-2.0.** The previous `LICENSE` was a mutated MIT whose copyright
-  line had been deleted and whose attribution clause was replaced with the literal text "No conditions.",
-  which left it legally ambiguous. It is now the verbatim Apache License 2.0 with an explicit copyright
-  holder, the file is named `LICENSE.md`, and `package.json` declares `"license": "Apache-2.0"`. Apache-2.0
-  adds an express patent grant and requires that changes to the files be stated; releases made before this
-  version remain under their original terms.
-- `package.json` follows the current Unity package manifest schema: a real `description`, `author` as an
-  object, and `licensesUrl`, `documentationUrl`, `changelogUrl` and `repository`.
-- README rewritten for 2.0.0, with an upgrade table and a quick start that is compiled as part of
-  verification rather than written by hand.
+- **`HyperlinkTextPresenter` renders a `TextModel` and localises like the other text presenters**: the format and
+  the arguments on every render, and again on a language change. Affects you if a translated format lacks its
+  `<link>` tags.
+- **`WithIntervalUpdate` takes the `ICoroutineProvider` as its second parameter**, drives any
+  `Presenter<TView, TModel>` and returns it as that type. Its first update's exception reaches the caller, and a
+  failing tick stops the timer.
+- **`UIGestureDetector`'s signals are `ISignal`**, so only the detector raises them. Affects you if you called
+  `Fire()` on one.
+- **`UIGestureDetector` follows the pointer outside the element**, so a `ScrollRect` above it no longer gets the
+  drags that start on it (a press that a `Button` inside the area takes is still handed on). Affects you if you
+  nest it in a scroll view. `OnDisable` and `OnDestroy` are `protected virtual`.
+- **`UnityEventExtensions` and `ButtonExtensions` moved from `UnityEngine.UI` to `OpenUGD`** (`[MovedFrom]`); they
+  reject `null` arguments and do nothing on a terminated lifetime.
+- **A render is never reported as a change.** Affects you if you relied on `SetModel` of a slider or an input field
+  raising its callback or signal.
+- **Every `SetModel` renders.** A later `SetModel` did not update a toggle, or an int slider's range. Every
+  helper sets the model before the view.
+- **`SliderIntPresenter` turns on `Slider.wholeNumbers`.**
+- **`AddSliderFloat(…, onChange)` throws `ArgumentNullException` for a `null` handler** before attaching anything.
+- **`InputFieldPresenter.InputValue` throws `InvalidOperationException`** without a live view, instead of
+  `NullReferenceException`; `RegisterToggleInGroup` throws `ArgumentNullException` for a `null` presenter.
+- **`HyperlinkOpenEvent` is raised only for links that were opened.**
+- **No `com.unity.textmeshpro` dependency**: TextMeshPro comes from `com.unity.ugui` 2.0.0 on Unity 6.
+- **Dependencies**: `com.openugd.corelib`, `com.openugd.context` (replacing `com.openugd.dependency.injection`),
+  `com.openugd.lifetime` and `com.openugd.signal` 2.0.0, and `com.unity.ugui` 2.0.0. An asmdef that uses the
+  presenters also references `com.openugd.presenters`.
+- Minimum Unity version raised to 6000.0.
+- Licence changed from a modified MIT text to Apache-2.0, in `LICENSE.md`. Earlier releases keep their original
+  terms.
+- `package.json` follows the current Unity schema and lists the samples; the display name is "CoreLib uGUI
+  Presenters". The package ID is unchanged.
 
 ### Removed
-
-- **Breaking: the hand-written subscribe methods** (decision 8): `ButtonPresenter.SubscribeOnClick`,
-  `TogglePresenter.SubscribeOnClick`, `InputFieldPresenter.SubscribeOnValueChanged`, and
-  `SliderFloatPresenter` implementing `ISignal<float>` with its `Subscribe`. Migration:
-  `presenter.Clicked.Subscribe(lifetime, handler)`, `Toggled.Subscribe`, `ValueChanged.Subscribe`.
-- **Breaking: the update helpers.** `TMPPresenterExtensions.UpdateText`,
-  `HyperlinkPresenterExtensions.UpdateText`, the `AddText(this Presenter, TMPPresenter, string)` and
-  `AddText(this Presenter, HyperlinkTextPresenter, string)` overloads that added nothing,
-  `RawImagePresenterExtensions.UpdateRawImage` and `SliderIntPresenterExtensions.UpdateSliderInt`. An
-  update is `SetModel`. Migration: `presenter.SetModel(text)`, or
-  `presenter.SetModel(new TextModel { Format = format, Keys = keys })`.
-- **Breaking: `AddKeyboard` is removed, with no replacement in the package** (WG-12, UH-19). It was
-  `KeyboardWidgetExtensions.AddKeyboard` in 0.5.0. It was not a presenter: it had no view and no handle to
-  stop it early. It could fire after close: the loop tested the presenter's `Lifetime` before its
-  one-frame wait and read the key after it, so one more round of callbacks could run on the frame after
-  the presenter closed. And it read only `UnityEngine.Input`, which throws `InvalidOperationException` when
-  Active Input Handling is set to the Input System package alone, so under that setting the poll died on
-  its first frame. Reading both backends correctly takes three compile-time branches, a `KeyCode`-to-`Key`
-  mapping and tests in each configuration, which is an input library's job rather than a UI presenter's.
-  Migration: the **Keyboard Shortcuts** sample; the README's *Upgrading from `AddKeyboard`* section shows
-  the call-site change.
-- No `[Obsolete]` forwarding types are provided for the old names. At this boundary the base class, the
-  lifecycle hooks and the whole DI layer change together, so affected code cannot compile regardless; the
-  upgrade table in the README is worth more than forwarding classes.
-- The obsolete `category` key from `package.json`.
+- **The subscribe methods**: `ButtonWidget.SubscribeOnClick`, `ToggleWidget.SubscribeOnClick`,
+  `InputFieldWidget.SubscribeOnValueChanged`, and `SliderFloatWidget` as an `ISignal<float>`. Use the signals.
+- **The update helpers**: `UpdateText` (TMP and hyperlink), the `AddText` overloads that took an existing widget,
+  `UpdateRawImage` and `UpdateSliderInt`. Use `SetModel`.
+- **`AddKeyboard`** (`KeyboardWidgetExtensions`). Use the Keyboard Shortcuts sample.
+- The `category` key from `package.json`.
 
 ### Fixed
-
-- **`AddToggle` and `AddSliderInt` no longer throw `NullReferenceException` for every non-null view**
-  (audit P0-5, WG-2). They set the view before the model, and the render dereferenced the missing model.
-- **`AddGesture` calls the delegate once per gesture, not twice** (audit P0-5, WG-3). `GesturePresenter`
-  subscribed in `OnRefresh`, adding a set of handlers on every refresh; it now subscribes once per view in
-  `OnViewAdded`.
-- **Replacing, detaching or re-attaching a view no longer leaks or doubles a listener**, and closing a
-  presenter whose view was detached with `SetView(null)` no longer throws from its clean-up (audit WG-4).
-- **A text with arguments is formatted without a localisation** (audit WG-6). `AddText(label,
-  "Score: {0}", 100)` showed `Score: {0}` when no `ILocalization` was registered; it shows `Score: 100`.
-- **The hyperlink helpers no longer write translations into the caller's argument array** (audit WG-7).
-- **`UIGestureDetector` reports the gesture that happened** (audit WG-9). `OnSwipeUp` and `OnSwipeDown` were
-  swapped: a movement towards the top of the screen raised `OnSwipeDown`. Ticking
-  `detectSwipeOnlyAfterRelease` turned swipes off altogether; it now judges the swipe once, from the release
-  position. A press that swiped also raised `OnTap` when released near the point where the swipe fired; a
-  press now reports at most one gesture, and a tap must stay within the threshold throughout (a release
-  exactly on the threshold now counts, so at a threshold of `0` a still press is a tap; it used to be
-  nothing). A release past the threshold that no move event reported counts as a swipe. Only the pointer that
-  pressed is followed: the moves and release of a finger that was already down when a second one pressed were
-  measured against the second press, and could report a swipe or a tap neither finger made.
-- **`WithIntervalUpdate` waits in real time, with one wait per timer** (audit WG-13, UH-23). Every tick
-  allocated a new `WaitForSeconds`, which counts scaled time, so a countdown froze while `Time.timeScale` was
-  `0`. The timer now reuses one wait in unscaled time, measured with the double-precision clock
-  (`Time.realtimeSinceStartupAsDouble`) because the float clock behind `WaitForSecondsRealtime` rounds a short
-  interval away to nothing after a long session; an interval of zero or less waits one frame.
-- **`HyperlinkText` hit-tests with the press camera** (audit WG-11). It passed no camera to
-  `TMP_TextUtilities.FindIntersectingLink`, so under a camera-space or world-space canvas clicks did not line
-  up with the links; it uses `PointerEventData.pressEventCamera`. Every link id was handed to
-  `Application.OpenURL` before anything could see it; `LinkClicked` now runs first and can refuse it (see
-  *Added*), and `HyperlinkOpenEvent` reports only links that were actually opened. An unassigned `Text` threw
-  `NullReferenceException` on the first click, and `HyperlinkTextPresenter` on its first render; `Text` is
-  now filled in with the `TMP_Text` on the same GameObject when the component is added in the editor and
-  whenever a click or a render finds it empty.
-- **A `UIGestureDetector` that is never activated leaves nothing behind** (audit WG-10). Reading a signal
-  created a scope nested in `Lifetime.Eternal` that only `OnDestroy` ended, and Unity never sends `OnDestroy`
-  to an object that was never active, so binding a presenter to a detector on a panel that was never shown
-  left that scope, with its signals, on `Eternal` for the rest of the process. The detector owns no
-  `Lifetime` now: a subscription is held by the detector and ended by the subscriber's lifetime or by
-  `OnDestroy`. The signals still work before the detector is first active.
-- `ResourcePrefabPresenter.OnRefresh` is idempotent. It instantiated a second copy under the same parent
-  and orphaned the first whenever `Refresh()` was called without a model change, because it overwrote its
-  instance field without destroying what was there.
-- A missing prefab throws naming the `Resources` path that failed, instead of surfacing as an unexplained
-  failure inside `Instantiate`.
+- `UIGestureDetector` reported an upward swipe as `OnSwipeDown` and a downward one as `OnSwipeUp`.
+- `UIGestureDetector.detectSwipeOnlyAfterRelease` turned swipes off; it now judges the swipe on release.
+- A press that swiped could also raise `OnTap`; a press reports at most one gesture.
+- `UIGestureDetector` measured a pointer's moves against another pointer's press; only the pointer that pressed is
+  followed.
+- A `UIGestureDetector` that was never activated left its signals on `Lifetime.Eternal` for the rest of the
+  process.
+- `HyperlinkText` hit-tested without a camera, so links missed on camera-space and world-space canvases.
+- `HyperlinkText` with no `Text` assigned threw `NullReferenceException` on the first click; it fills `Text` in
+  from its own GameObject.
+- `AddHyperlinkText` threw `NullReferenceException` when no `ILocalization` was registered, and the hyperlink format
+  helper wrote translations into the caller's argument array.
+- A text with arguments showed its raw pattern (`Score: {0}`) when no `ILocalization` was registered.
+- Replacing a view left the presenter's listener on the old view, and closing a presenter after `SetView(null)`
+  threw `NullReferenceException`. Listeners now live on the view's `ViewLifetime`.
+- `WithIntervalUpdate` waited in scaled time, so a countdown froze while `Time.timeScale` was `0`, and allocated a
+  wait per tick.
+- `WithIntervalUpdate` left its scope behind when the coroutine could not be started.
+- A missing `Resources` prefab failed inside `Instantiate`; it throws `InvalidOperationException` naming the path.

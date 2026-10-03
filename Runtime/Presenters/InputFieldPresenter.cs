@@ -53,8 +53,14 @@ namespace OpenUGD.Presenters
         /// <summary>
         /// What the field holds right now, user edits included. Empty reads as <c>""</c>.
         /// </summary>
-        /// <exception cref="NullReferenceException">No view is attached.</exception>
-        public string InputValue => View.text;
+        /// <exception cref="InvalidOperationException">No view is attached, or the view has been destroyed.
+        /// </exception>
+        public string InputValue =>
+            View != null
+                ? View.text
+                : throw new InvalidOperationException(
+                    $"{nameof(InputFieldPresenter)}.{nameof(InputValue)} was read with no live view: none is " +
+                    "attached, or it has been destroyed. Read Model for the text last set.");
 
         /// <summary>
         /// Adds the change listener to the attached field, scoped to its <c>ViewLifetime</c>.

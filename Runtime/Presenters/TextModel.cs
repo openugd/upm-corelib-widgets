@@ -94,7 +94,8 @@ namespace OpenUGD.Presenters
             if (localization == null)
                 return Keys == null ? Format : string.Format(Format, Keys);
 
-            var pattern = localization.Get(Format);
+            // A null translation renders empty, with or without arguments, rather than reaching string.Format.
+            var pattern = localization.Get(Format) ?? "";
             if (Keys == null) return pattern;
 
             var values = new object[Keys.Length];

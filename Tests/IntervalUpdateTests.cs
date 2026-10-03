@@ -128,7 +128,7 @@ namespace OpenUGD.Widgets.Tests
         }
 
         [Test]
-        public void ACallbackThatThrowsOnALaterTick_EndsTheCoroutine_AndThePresenterIsStillSafeToClose()
+        public void ACallbackThatThrowsOnALaterTick_StopsTheTimer_AndUnityLogsIt()
         {
             var runner = new SteppingRunner();
             var label = Root.AddText((TMPro.TMP_Text)null, "");
@@ -138,7 +138,25 @@ namespace OpenUGD.Widgets.Tests
             Assert.IsFalse(runner.Step());
 
             Assert.IsInstanceOf<InvalidOperationException>(runner.Logged, "Unity logs it");
+            Assert.AreEqual(1, runner.Stopped, "the timer's scope ended with the coroutine instead of waiting for close");
             Assert.DoesNotThrow(() => label.Close());
+            Assert.AreEqual(1, runner.Stopped, "closing does not stop it again");
+            Assert.AreEqual(2, calls);
+        }
+
+        [Test]
+        public void ARenderThatThrowsOnALaterTick_StopsTheTimer()
+        {
+            var runner = new SteppingRunner();
+            var presenter = Root.AddPresenter(new FailingRender());
+            presenter.SetView(new Board());
+            var model = 0;
+
+            presenter.WithIntervalUpdate(runner, _ => model++);
+            Assert.IsFalse(runner.Step());
+
+            Assert.IsInstanceOf<FormatException>(runner.Logged);
+            Assert.AreEqual(1, runner.Stopped);
         }
 
         // --- WG-13, UH-23: one realtime wait per timer --------------------------------------------------------

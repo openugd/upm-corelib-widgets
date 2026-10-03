@@ -76,6 +76,16 @@ namespace OpenUGD.Widgets.Tests
         }
 
         [Test]
+        public void ANullTranslation_RendersEmpty_WithOrWithoutArguments()
+        {
+            // It used to return null without arguments and throw ArgumentNullException from string.Format with them.
+            var localization = new MapLocalization { ["score"] = null };
+
+            Assert.AreEqual("", ((TextModel)"score").Resolve(localization));
+            Assert.AreEqual("", new TextModel { Format = "score", Keys = new object[] { 1 } }.Resolve(localization));
+        }
+
+        [Test]
         public void AMalformedPattern_ThrowsFormatException()
         {
             var model = new TextModel { Format = "{1}", Keys = new object[] { 1 } };

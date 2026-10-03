@@ -221,7 +221,16 @@ namespace OpenUGD.Presenters
                 yield return wait;
                 if (timer.IsTerminated) yield break;
 
-                presenter.SetModel(model(timer));
+                try
+                {
+                    presenter.SetModel(model(timer));
+                }
+                catch
+                {
+                    // The coroutine ends with this exception (Unity logs it); end the timer's scope with it.
+                    timer.Terminate();
+                    throw;
+                }
             }
         }
 

@@ -84,6 +84,22 @@ namespace OpenUGD.Widgets.Tests
             Assert.AreEqual(0, Root.Children.Count);
         }
 
+        [Test]
+        public void RegisterToggleInGroup_RejectsANullPresenter_AndIgnoresAMissingViewOrGroup()
+        {
+            Assert.Throws<ArgumentNullException>(() => ((TogglePresenter)null).RegisterToggleInGroup(null));
+            Assert.DoesNotThrow(() => Root.AddToggle(null, null).RegisterToggleInGroup(null));
+        }
+
+        [Test]
+        public void InputValue_WithNoView_ThrowsInvalidOperationException()
+        {
+            var presenter = Root.AddInputField(null, "typed");
+
+            var thrown = Assert.Throws<InvalidOperationException>(() => _ = presenter.InputValue);
+            StringAssert.Contains("InputValue", thrown.Message);
+        }
+
         private static void AssertAttached<TView, TModel>(Presenter<TView, TModel> presenter, TModel model)
             where TView : class
         {

@@ -136,9 +136,12 @@ namespace OpenUGD.Presenters
         /// </remarks>
         /// <param name="toggle">The presenter whose view joins the group.</param>
         /// <param name="group">The group to join, or <c>null</c> to do nothing.</param>
-        /// <exception cref="NullReferenceException"><paramref name="toggle"/> is <c>null</c>.</exception>
+        /// <exception cref="ArgumentNullException"><paramref name="toggle"/> is <c>null</c>.</exception>
         public static void RegisterToggleInGroup(this TogglePresenter toggle, ToggleGroup group)
         {
+            if (toggle == null)
+                throw new ArgumentNullException(nameof(toggle), $"{nameof(toggle)} can't be null");
+
             if (toggle.View == null || group == null)
             {
                 return;

@@ -126,6 +126,39 @@ namespace OpenUGD.Widgets.Tests
         }
 
         [Test]
+        public void ANeverActivatedDetector_AddsNoComponent_AndNeedsNoScope()
+        {
+            // corelib's gameObject.GetLifetime() refuses an inactive GameObject, by design: Unity would never tell
+            // the component it adds that the object was destroyed. The detector's signals take subscriptions before
+            // it is first active, so they own no scope at all instead.
+            Assert.IsFalse(_detector.gameObject.activeSelf);
+            Assert.IsNull(_detector.GetComponent<Core.LifetimeBehaviour>());
+
+            _detector.OnPointerDown(At(0, 0));
+            _detector.OnPointerUp(At(0, 0));
+
+            CollectionAssert.AreEqual(new[] { "tap" }, _seen);
+            Assert.IsNull(_detector.GetComponent<Core.LifetimeBehaviour>());
+        }
+
+        [Test]
+        public void ADetectorDestroyedBeforeItWasEverActive_LeavesItsSubscribersClean()
+        {
+            // Unity sends no OnDestroy here, so the detector never closes its signals; the subscriber's lifetime
+            // still ends the registration, and nothing else holds it.
+            var subscriber = TestLifetime.DefineNested("subscriber");
+            var tap = (OwnerlessSignal)_detector.OnTap;
+            tap.Subscribe(subscriber.Lifetime, () => _seen.Add("late"));
+            Assert.AreEqual(2, tap.Count);
+
+            Object.DestroyImmediate(_detector.gameObject);
+
+            Assert.IsFalse(tap.IsClosed, "no OnDestroy for an object that was never awake");
+            Assert.DoesNotThrow(() => subscriber.Terminate());
+            Assert.AreEqual(1, tap.Count, "only the fixture's own subscription is left");
+        }
+
+        [Test]
         public void OnDisable_AbandonsTheGestureInProgress()
         {
             _detector.OnPointerDown(At(0, 0));

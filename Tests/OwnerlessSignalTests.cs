@@ -1,12 +1,15 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using System.Threading;
 using NUnit.Framework;
 using OpenUGD.UI;
 
 namespace OpenUGD.Widgets.Tests
 {
-    // The signal behind UIGestureDetector's five signals: no Lifetime of its own (audit WG-10), otherwise
-    // Signal's semantics. Plain C#, so all of it runs without the engine.
+    // The signal behind UIGestureDetector's five signals: no Lifetime of its own, otherwise Signal's semantics.
+    // The detector must accept subscriptions before it is ever active, and a detector that is never activated gets
+    // no OnDestroy, so nothing may root it but its subscribers (audit WG-10). Plain C#: runs without the engine.
     [TestFixture]
     public class OwnerlessSignalTests
     {
@@ -141,10 +144,89 @@ namespace OpenUGD.Widgets.Tests
         }
 
         [Test]
+        public void OnceItsSubscribersEnd_NothingKeepsTheSignalOrItsHandlers()
+        {
+            // What a never-activated detector relies on: no OnDestroy will ever close it, so it must be collectable
+            // as soon as its subscribers are gone, while the scope above them lives on.
+            var weak = OnAThreadOfItsOwn(() => SubscribeThenEndTheSubscriber(_subscriber.Lifetime));
+
+            Collect();
+
+            Assert.IsFalse(weak[0].IsAlive, "the signal");
+            Assert.IsFalse(weak[1].IsAlive, "what the handler captured");
+        }
+
+        [Test]
+        public void Close_ReleasesTheHandlers_WhileTheirSubscriberLivesOn()
+        {
+            // A destroyed detector must not keep a presenter's closures alive through the presenter's own lifetime.
+            var signal = new OwnerlessSignal();
+            var weak = OnAThreadOfItsOwn(() => SubscribeACapturingHandler(signal, _subscriber.Lifetime));
+
+            signal.Close();
+            Collect();
+
+            Assert.IsFalse(weak.IsAlive);
+            Assert.IsFalse(_subscriber.IsTerminated);
+        }
+
+        [Test]
         public void NullArguments_AreRejected()
         {
             Assert.Throws<ArgumentNullException>(() => _signal.Subscribe(null, () => { }));
             Assert.Throws<ArgumentNullException>(() => _signal.Subscribe(_subscriber.Lifetime, null));
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static WeakReference[] SubscribeThenEndTheSubscriber(Lifetime parent)
+        {
+            var signal = new OwnerlessSignal();
+            var subscriber = parent.DefineNested("short-lived-subscriber");
+            var capture = SubscribeACapturingHandler(signal, subscriber.Lifetime);
+            subscriber.Terminate();
+            return new[] { new WeakReference(signal), capture };
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static WeakReference SubscribeACapturingHandler(OwnerlessSignal signal, Lifetime lifetime)
+        {
+            var capture = new object();
+            signal.Subscribe(lifetime, () => GC.KeepAlive(capture));
+            return new WeakReference(capture);
+        }
+
+        private static void Collect()
+        {
+            for (var i = 0; i < 3; i++)
+            {
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+            }
+        }
+
+        // Builds the objects under test on a thread that has finished by the time the test collects, so no stack
+        // holds a stray pointer to them: Unity's Boehm collector scans live stacks conservatively (the signal
+        // package's retention tests measured why).
+        private static T OnAThreadOfItsOwn<T>(Func<T> setUp)
+        {
+            var result = default(T);
+            Exception failure = null;
+            var thread = new Thread(() =>
+            {
+                try
+                {
+                    result = setUp();
+                }
+                catch (Exception exception)
+                {
+                    failure = exception;
+                }
+            }) { IsBackground = true, Name = "retention-set-up" };
+
+            thread.Start();
+            Assert.IsTrue(thread.Join(30000), "the set-up thread did not finish");
+            if (failure != null) Assert.Fail("the set-up threw: " + failure);
+            return result;
         }
     }
 }

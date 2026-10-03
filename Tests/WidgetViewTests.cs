@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using NUnit.Framework;
 using OpenUGD.Presenters;
-using OpenUGD.UI;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -11,8 +10,8 @@ using Object = UnityEngine.Object;
 namespace OpenUGD.Widgets.Tests
 {
     // The presenters against real uGUI components: rendering, the no-echo rule, and listeners that follow the
-    // view (audit WG-2, WG-3, WG-4, WG-5, WG-8). Components live on inactive GameObjects, so no Unity message
-    // runs and nothing but the presenter touches them.
+    // view (audit WG-2, WG-4, WG-5, WG-8; the gesture presenter, WG-3, is in GestureDetectorTests). Components
+    // live on inactive GameObjects, so no Unity message runs and nothing but the presenter touches them.
     [TestFixture]
     [Category("RequiresUnity")]
     public class WidgetViewTests : PresenterFixture
@@ -222,25 +221,6 @@ namespace OpenUGD.Widgets.Tests
             toggle.Close();
             view.isOn = !view.isOn;
             Assert.AreEqual(0, changes);
-        }
-
-        // --- WG-3: one gesture, one call -------------------------------------------------------------------
-
-        [Test]
-        public void GesturePresenter_CallsTheDelegateOncePerGesture_AndFollowsTheView()
-        {
-            var first = NewView<UIGestureDetector>();
-            var second = NewView<UIGestureDetector>();
-            var seen = new List<Gesture>();
-            var presenter = Root.AddGesture(first, (sender, gesture) => seen.Add(gesture));
-
-            presenter.Refresh();
-            first.OnTap.Fire();
-            presenter.SetView(second);
-            first.OnSwipeLeft.Fire();
-            second.OnSwipeRight.Fire();
-
-            CollectionAssert.AreEqual(new[] { Gesture.Tap, Gesture.Right }, seen);
         }
 
         // --- the plain renders -------------------------------------------------------------------------------

@@ -1,11 +1,12 @@
+using OpenUGD.Presenters;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
 namespace OpenUGD.UI
 {
     /// <summary>
-    /// Turns Unity's pointer events on one UI element into taps and four-way swipes, published as
-    /// <see cref="Signal"/>s that unsubscribe themselves when the GameObject is destroyed.
+    /// Turns Unity's pointer events on one UI element into taps and four-way swipes, published as subscribe-only
+    /// <see cref="ISignal"/>s.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -17,50 +18,55 @@ namespace OpenUGD.UI
     /// rather than the inspector wiring events.
     /// </para>
     /// <para>
-    /// <b>One swipe per press.</b> A press starts a gesture, the swipe test then runs every frame while the
-    /// pointer is down, and firing a swipe ends the gesture — so at most one swipe is reported between a
-    /// pointer down and the next one, no matter how far the drag continues. A tap is judged separately, on
-    /// release.
+    /// <b>One gesture per press.</b> A press starts a gesture and the release ends it. In between, the pointer
+    /// is followed through move events while it is over the element and drag events wherever it goes, so a
+    /// swipe that leaves the element still counts. At most one swipe is reported per press, and a press that
+    /// swiped is not also a tap. A tap is a press released within <see cref="swipeThresholdOfScreen"/> of where
+    /// it went down, by a pointer that never strayed further than that. One pointer at a time: a second press
+    /// restarts the gesture, and disabling the component abandons it.
     /// </para>
     /// <para>
-    /// <b>Scope.</b> The signals hang off a lifetime nested in <see cref="OpenUGD.Lifetime.Eternal"/> and
-    /// named after the GameObject. It is created the first time any signal is read and terminated in
-    /// <c>OnDestroy</c>, so destroying the object drops every handler; a signal obtained beforehand then
-    /// silently registers nothing instead of leaking the handler.
-    /// Nothing here is thread-safe, and nothing needs to be: everything runs on Unity's main thread.
+    /// <b>The element takes the drag.</b> Because it handles drag events, a <c>ScrollRect</c> or another drag
+    /// handler above it no longer receives drags that start on it.
+    /// </para>
+    /// <para>
+    /// <b>Scope.</b> A subscription lasts as long as the subscriber's lifetime, or until this component is
+    /// destroyed, whichever ends first; after <c>OnDestroy</c> a subscription registers nothing. The component
+    /// owns no <see cref="OpenUGD.Lifetime"/>, so one that is never activated — and therefore never receives
+    /// <c>OnDestroy</c> — leaves nothing behind. The signals work before the component is first active, so a
+    /// presenter can subscribe to a detector on an inactive object. Everything runs on Unity's main thread.
+    /// </para>
+    /// <para>
+    /// <i>Changed in 2.0.0</i> — the signals are <see cref="ISignal"/> instead of <see cref="Signal"/>, so only
+    /// the detector raises them. Up and Down follow the direction of travel (they were swapped);
+    /// <see cref="detectSwipeOnlyAfterRelease"/> judges the swipe on release (it used to turn swipes off); a
+    /// swipe no longer also raises <see cref="OnTap"/>; a pointer that leaves the element is still followed; the
+    /// per-frame <c>Update</c> is gone, the test running on each pointer event instead; and the signals no
+    /// longer hang off a scope nested in <see cref="OpenUGD.Lifetime.Eternal"/>, which a never-activated
+    /// detector left behind for the rest of the process (audit WG-9, WG-10).
     /// </para>
     /// </remarks>
-    public class UIGestureDetector : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IPointerMoveHandler
+    public class UIGestureDetector : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IPointerMoveHandler,
+        IDragHandler
     {
-        private Lifetime.Definition _definition;
-        private Vector2 _fingerDown;
-        private Vector2 _fingerDrag;
-        private Vector2 _fingerUp;
-        private bool _isTapGesture = true;
-        private Signal _onSwipeLeft;
-        private Signal _onSwipeRight;
-        private Signal _onSwipeUp;
-        private Signal _onSwipeDown;
-        private Signal _onTap;
-        private bool _isSwiping = false;
+        private readonly GestureRecognizer _recognizer = new GestureRecognizer();
+        private readonly OwnerlessSignal _onSwipeLeft = new OwnerlessSignal();
+        private readonly OwnerlessSignal _onSwipeRight = new OwnerlessSignal();
+        private readonly OwnerlessSignal _onSwipeUp = new OwnerlessSignal();
+        private readonly OwnerlessSignal _onSwipeDown = new OwnerlessSignal();
+        private readonly OwnerlessSignal _onTap = new OwnerlessSignal();
 
         /// <summary>
-        /// Left at its default <c>false</c>, the swipe test runs every frame while the pointer is down and
-        /// once more when it is released. Ticking it in the inspector does not defer swipe detection — it
-        /// disables it: both call sites of the test are guarded by this field being <c>false</c>, and no
-        /// other code path performs it, so no swipe signal ever fires while this is <c>true</c>.
+        /// Left at its default <c>false</c>, a swipe is reported the moment the pointer crosses the threshold,
+        /// while it is still down. Ticked, the swipe is judged once, on release, from where the pointer was
+        /// released — a flick rather than a drag. <see cref="OnTap"/> is judged on release either way.
         /// </summary>
-        /// <remarks>
-        /// Documented as the field behaves rather than as its name reads. <see cref="OnTap"/> is unaffected
-        /// either way, so ticking this leaves a tap-only detector.
-        /// </remarks>
         public bool detectSwipeOnlyAfterRelease = false;
 
         /// <summary>
         /// How far the pointer must travel for a swipe, as a fraction of <see cref="Screen.height"/>. The
-        /// same distance is the radius inside which a press-and-release counts as a tap, so this one number
-        /// tunes both gestures and there is no separate tap tolerance. Default <c>0.1f</c> — a tenth of the
-        /// screen height.
+        /// same distance is the radius a tap must stay within, so this one number tunes both gestures and there
+        /// is no separate tap tolerance. Default <c>0.1f</c> — a tenth of the screen height.
         /// </summary>
         /// <remarks>
         /// <para>
@@ -71,187 +77,129 @@ namespace OpenUGD.UI
         /// is what keeps the gesture roughly the same physical size across resolutions.
         /// </para>
         /// <para>
-        /// Re-read every frame, so it can be raised or lowered at runtime. At <c>0</c> nothing is ever a tap
-        /// — the tap test is a strict "closer than" — and the slightest movement is a swipe; above <c>1</c>
-        /// a vertical swipe can never be long enough.
+        /// Read on every pointer event, so it can be changed at runtime. At <c>0</c> only a press released
+        /// exactly where it went down is a tap, and the slightest movement is a swipe; above <c>1</c> a vertical
+        /// swipe can never be long enough.
         /// </para>
         /// </remarks>
         public float swipeThresholdOfScreen = 0.1f;
 
-        // Events for gestures
-
         /// <summary>
         /// Raised when the dominant axis of the movement is horizontal and the pointer has travelled left
-        /// past <see cref="swipeThresholdOfScreen"/>. Created on first read and shared by every subscriber.
+        /// past <see cref="swipeThresholdOfScreen"/>.
         /// </summary>
         /// <remarks>
-        /// Fires at most once per press, and never at all while <see cref="detectSwipeOnlyAfterRelease"/> is
-        /// <c>true</c>. The test runs every frame against the latest position from
-        /// <see cref="OnPointerMove"/>, so the signal arrives the moment the threshold is crossed — while
-        /// the finger is still down, not on release.
+        /// At most once per press. Live, it arrives the moment the threshold is crossed, while the pointer is
+        /// still down; with <see cref="detectSwipeOnlyAfterRelease"/>, on release. A release past the threshold
+        /// that no move event reported is a swipe too.
         /// </remarks>
-        public Signal OnSwipeLeft => _onSwipeLeft ?? (_onSwipeLeft = new Signal(Lifetime));
+        public ISignal OnSwipeLeft => _onSwipeLeft;
 
         /// <summary>
         /// The mirror of <see cref="OnSwipeLeft"/>: a horizontal movement past the threshold, to the right.
         /// </summary>
-        public Signal OnSwipeRight => _onSwipeRight ?? (_onSwipeRight = new Signal(Lifetime));
+        public ISignal OnSwipeRight => _onSwipeRight;
 
         /// <summary>
-        /// Raised when the dominant axis is vertical and the pointer's y has <i>decreased</i> past the
-        /// threshold — a movement towards the bottom of the screen, since
-        /// <see cref="PointerEventData.position"/> counts y upwards.
+        /// A vertical movement past the threshold towards the top of the screen —
+        /// <see cref="PointerEventData.position"/>'s y increasing. Otherwise as <see cref="OnSwipeLeft"/>.
         /// </summary>
-        /// <remarks>
-        /// The vertical pair is inverted with respect to the horizontal pair, which does follow the
-        /// direction of travel. Wire this signal by trying the gesture on a device rather than by reading
-        /// its name, and swap it with <see cref="OnSwipeDown"/> if the result feels backwards. Everything
-        /// else in <see cref="OnSwipeLeft"/>'s remarks applies here too.
-        /// </remarks>
-        public Signal OnSwipeUp => _onSwipeUp ?? (_onSwipeUp = new Signal(Lifetime));
+        public ISignal OnSwipeUp => _onSwipeUp;
 
         /// <summary>
-        /// The counterpart of <see cref="OnSwipeUp"/>: raised when the pointer's y <i>increases</i> past the
-        /// threshold, which on screen is a movement towards the top. Read <see cref="OnSwipeUp"/> first.
+        /// A vertical movement past the threshold towards the bottom of the screen. Otherwise as
+        /// <see cref="OnSwipeLeft"/>.
         /// </summary>
-        public Signal OnSwipeDown => _onSwipeDown ?? (_onSwipeDown = new Signal(Lifetime));
+        public ISignal OnSwipeDown => _onSwipeDown;
 
         /// <summary>
-        /// Raised on release when the pointer came up within <see cref="swipeThresholdOfScreen"/> of where
-        /// it went down.
+        /// Raised on release when the pointer came up within <see cref="swipeThresholdOfScreen"/> of where it
+        /// went down, never strayed further than that in between, and did not swipe.
         /// </summary>
         /// <remarks>
         /// There is no time limit — a press held for a minute that ends where it began is a tap, so use a
-        /// separate timer if a long press has to mean something else. A press that already fired a swipe can
-        /// still raise this on release, because firing a swipe moves the recorded origin to the point at
-        /// which it fired, and anything short of another threshold's travel from there reads as a tap.
+        /// separate timer if a long press has to mean something else.
         /// </remarks>
-        public Signal OnTap => _onTap ?? (_onTap = new Signal(Lifetime));
-
-        private Lifetime Lifetime {
-            get {
-                if (_definition == null)
-                {
-                    _definition = Lifetime.Eternal.DefineNested(gameObject.name);
-                }
-
-                return _definition.Lifetime;
-            }
-        }
+        public ISignal OnTap => _onTap;
 
         private float SwipeThreshold => Screen.height * swipeThresholdOfScreen;
 
-        private void OnDestroy() => _definition?.Terminate();
-
         /// <summary>
-        /// Begins a gesture: the press point becomes the origin every later measurement is taken from, and
-        /// any gesture still in progress is abandoned. Called by the <c>EventSystem</c>; calling it directly
-        /// synthesises a press, which is how a gesture is exercised in a test.
+        /// Begins a gesture at the press point, abandoning any gesture still in progress. Called by the
+        /// <c>EventSystem</c>; calling it directly synthesises a press.
         /// </summary>
         /// <param name="data">The pointer event. Only <see cref="PointerEventData.position"/> is read, so a
         /// hand-built instance carrying just that is enough.</param>
-        public void OnPointerDown(PointerEventData data)
-        {
-            ResetCoords(data.position);
-            _isSwiping = true;
-        }
+        public void OnPointerDown(PointerEventData data) => _recognizer.Press(data.position);
 
         /// <summary>
-        /// Records where the pointer now is. This — not the release point — is what the per-frame swipe test
-        /// measures against, so a device or platform that does not deliver move events yields no swipes.
+        /// Follows the pointer while it is over the element, and reports a swipe the moment it crosses the
+        /// threshold, unless <see cref="detectSwipeOnlyAfterRelease"/> is set. Ignored while no press is in
+        /// progress.
         /// </summary>
-        /// <param name="data">The pointer event; only <see cref="PointerEventData.position"/> is read.
-        /// </param>
-        public void OnPointerMove(PointerEventData data) => _fingerDrag = data.position;
+        /// <param name="data">The pointer event; only <see cref="PointerEventData.position"/> is read.</param>
+        public void OnPointerMove(PointerEventData data) => Follow(data);
 
         /// <summary>
-        /// Ends the gesture: raises <see cref="OnTap"/> first if the release is close enough to the origin,
-        /// then runs the swipe test one last time unless <see cref="detectSwipeOnlyAfterRelease"/> says
-        /// otherwise. The two tests are independent, so one release can raise both.
+        /// Follows the pointer wherever it goes once the <c>EventSystem</c> has started a drag, including
+        /// outside the element; otherwise as <see cref="OnPointerMove"/>.
         /// </summary>
-        /// <param name="data">The pointer event. Its position decides the tap; the swipe still measures
-        /// against the last <see cref="OnPointerMove"/> position.</param>
-        public void OnPointerUp(PointerEventData data)
+        /// <param name="data">The pointer event; only <see cref="PointerEventData.position"/> is read.</param>
+        public void OnDrag(PointerEventData data) => Follow(data);
+
+        /// <summary>
+        /// Ends the gesture: reports the swipe if one is still due, otherwise <see cref="OnTap"/> if the press
+        /// qualifies. At most one of them.
+        /// </summary>
+        /// <param name="data">The pointer event; only <see cref="PointerEventData.position"/> is read.</param>
+        public void OnPointerUp(PointerEventData data) => Raise(_recognizer.Release(data.position, SwipeThreshold));
+
+        /// <summary>
+        /// Unity's <c>OnDisable</c>: abandons a gesture in progress, whose release this component may never
+        /// see. <b>Call <c>base.OnDisable()</c></b> when overriding.
+        /// </summary>
+        protected virtual void OnDisable() => _recognizer.Cancel();
+
+        /// <summary>
+        /// Unity's <c>OnDestroy</c>: drops every subscription; later ones register nothing.
+        /// <b>Call <c>base.OnDestroy()</c></b> when overriding.
+        /// </summary>
+        protected virtual void OnDestroy()
         {
-            _fingerUp = data.position;
-
-            if (_isTapGesture && Vector2.Distance(_fingerDown, _fingerUp) < SwipeThreshold)
-            {
-                HandleTap();
-            }
-
-            if (!detectSwipeOnlyAfterRelease)
-            {
-                CheckSwipe();
-            }
-
-            _isTapGesture = true;
-            _isSwiping = false;
+            _recognizer.Cancel();
+            _onSwipeLeft.Close();
+            _onSwipeRight.Close();
+            _onSwipeUp.Close();
+            _onSwipeDown.Close();
+            _onTap.Close();
         }
 
-        void Update()
+        private void Follow(PointerEventData data)
         {
-            if (!detectSwipeOnlyAfterRelease)
-            {
-                CheckSwipe();
-            }
+            if (!_recognizer.IsPressed) return;
+            Raise(_recognizer.Move(data.position, SwipeThreshold, detectSwipeOnlyAfterRelease));
         }
 
-        private void CheckSwipe()
+        private void Raise(Gesture? gesture)
         {
-            if (!_isSwiping)
-                return;
-
-            if (VerticalMoveDistance() > SwipeThreshold && VerticalMoveDistance() > HorizontalMoveDistance())
+            switch (gesture)
             {
-                // Vertical swipe
-                if (_fingerDown.y - _fingerDrag.y > 0)
-                {
-                    HandleSwipeUp();
-                }
-                else if (_fingerDrag.y - _fingerDown.y > 0)
-                {
-                    HandleSwipeDown();
-                }
-
-                ResetCoords(_fingerDrag);
-            }
-            else if (HorizontalMoveDistance() > SwipeThreshold && HorizontalMoveDistance() > VerticalMoveDistance())
-            {
-                // Horizontal swipe
-                if (_fingerDown.x - _fingerDrag.x > 0)
-                {
-                    HandleSwipeLeft();
-                }
-                else if (_fingerDrag.x - _fingerDown.x > 0)
-                {
-                    HandleSwipeRight();
-                }
-
-                ResetCoords(_fingerDrag);
+                case Gesture.Tap:
+                    _onTap.Fire();
+                    break;
+                case Gesture.Left:
+                    _onSwipeLeft.Fire();
+                    break;
+                case Gesture.Right:
+                    _onSwipeRight.Fire();
+                    break;
+                case Gesture.Up:
+                    _onSwipeUp.Fire();
+                    break;
+                case Gesture.Down:
+                    _onSwipeDown.Fire();
+                    break;
             }
         }
-
-        private void ResetCoords(Vector2 coord)
-        {
-            _fingerDown = coord;
-            _fingerUp = coord;
-            _fingerDrag = coord;
-            _isSwiping = false;
-        }
-
-        private float VerticalMoveDistance() => Mathf.Abs(_fingerDown.y - _fingerDrag.y);
-
-        private float HorizontalMoveDistance() => Mathf.Abs(_fingerDown.x - _fingerDrag.x);
-
-        private void HandleSwipeUp() => OnSwipeUp?.Fire();
-
-        private void HandleSwipeDown() => OnSwipeDown?.Fire();
-
-        private void HandleSwipeLeft() => OnSwipeLeft?.Fire();
-
-        private void HandleSwipeRight() => OnSwipeRight?.Fire();
-
-        private void HandleTap() => OnTap?.Fire();
     }
 }

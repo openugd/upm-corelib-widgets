@@ -93,6 +93,13 @@ Almost everything below is breaking. Each breaking entry ends with the change to
   coroutine that cannot be started no longer leaves the timer's scope behind, and on a presenter that has
   already closed nothing is started. Migration: inject an `ICoroutineProvider` into the calling presenter
   and write `label.WithIntervalUpdate(_coroutines, text)`.
+- **Breaking: `UIGestureDetector`'s five signals are subscribe-only `ISignal` properties** instead of
+  `Signal` (decision 8), so only the detector raises them. It now follows a pointer that leaves the element
+  through `IDragHandler`, which means a `ScrollRect` or other drag handler above it no longer receives drags
+  that start on it. The per-frame `Update` is gone: a swipe is tested on each pointer event. `OnDisable`
+  (which abandons a gesture in progress) and `OnDestroy` are `protected virtual`. Migration: code that called
+  `Fire()` on a detector's signal drives its pointer handlers instead; a subclass that declared its own
+  `OnDestroy` or `OnDisable` overrides it and calls `base`.
 - **Breaking: the `AddSliderFloat(…, onChange)` overloads reject a `null` handler** with
   `ArgumentNullException` before attaching anything. They subscribe `onChange` to
   `SliderFloatPresenter.ValueChanged`. Migration: pass a handler, or call the overload without one.
@@ -181,6 +188,18 @@ Almost everything below is breaking. Each breaking entry ends with the change to
 - **A text with arguments is formatted without a localisation** (audit WG-6). `AddText(label,
   "Score: {0}", 100)` showed `Score: {0}` when no `ILocalization` was registered; it shows `Score: 100`.
 - **The hyperlink helpers no longer write translations into the caller's argument array** (audit WG-7).
+- **`UIGestureDetector` reports the gesture that happened** (audit WG-9). `OnSwipeUp` and `OnSwipeDown` were
+  swapped: a movement towards the top of the screen raised `OnSwipeDown`. Ticking
+  `detectSwipeOnlyAfterRelease` turned swipes off altogether; it now judges the swipe once, from the release
+  position. A press that swiped also raised `OnTap` when released near the point where the swipe fired; a
+  press now reports at most one gesture, and a tap must stay within the threshold throughout. A release past
+  the threshold that no move event reported counts as a swipe.
+- **A `UIGestureDetector` that is never activated leaves nothing behind** (audit WG-10). Reading a signal
+  created a scope nested in `Lifetime.Eternal` that only `OnDestroy` ended, and Unity never sends `OnDestroy`
+  to an object that was never active, so binding a presenter to a detector on a panel that was never shown
+  left that scope, with its signals, on `Eternal` for the rest of the process. The detector owns no
+  `Lifetime` now: a subscription is held by the detector and ended by the subscriber's lifetime or by
+  `OnDestroy`. The signals still work before the detector is first active.
 - `ResourcePrefabPresenter.OnRefresh` is idempotent. It instantiated a second copy under the same parent
   and orphaned the first whenever `Refresh()` was called without a model change, because it overwrote its
   instance field without destroying what was there.

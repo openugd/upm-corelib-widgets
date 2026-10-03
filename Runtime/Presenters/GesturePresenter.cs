@@ -20,7 +20,8 @@ namespace OpenUGD.Presenters
     {
         /// <summary>
         /// A press and release near enough to the same point to be a tap rather than a drag — see
-        /// <see cref="UIGestureDetector.OnTap"/>, which has no time limit and can follow a swipe.
+        /// <see cref="UIGestureDetector.OnTap"/>, which has no time limit. Never reported for a press that
+        /// swiped.
         /// </summary>
         Tap,
 
@@ -35,15 +36,12 @@ namespace OpenUGD.Presenters
         Right,
 
         /// <summary>
-        /// Whatever <see cref="UIGestureDetector.OnSwipeUp"/> raises. Read that signal before trusting the
-        /// name: the detector's vertical pair does not follow the direction of travel the way the
-        /// horizontal pair does.
+        /// A vertical swipe towards the top of the screen; <see cref="UIGestureDetector.OnSwipeUp"/>.
         /// </summary>
         Up,
 
         /// <summary>
-        /// Whatever <see cref="UIGestureDetector.OnSwipeDown"/> raises; see <see cref="Gesture.Up"/> for the
-        /// same caveat about the vertical axis.
+        /// A vertical swipe towards the bottom of the screen; <see cref="UIGestureDetector.OnSwipeDown"/>.
         /// </summary>
         Down
     }

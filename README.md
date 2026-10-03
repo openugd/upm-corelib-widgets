@@ -233,6 +233,8 @@ a presenter, so that is what they are called now. Every row below is a compile e
 | `slider.UpdateSliderInt(model)` | `slider.SetModel(model)` |
 | `label.WithIntervalUpdate(text)` | `label.WithIntervalUpdate(coroutines, text)`, with an injected `ICoroutineProvider` |
 | `TMPPresenterIntervalUpdateExtensions` | `IntervalUpdateExtensions` |
+| `TMPPresenter label = x.WithIntervalUpdate(…)` | `WithIntervalUpdate` returns `Presenter<TView, TModel>`: keep the presenter you called it on |
+| `Signal tap = detector.OnTap;`, `detector.OnTap.Fire()` | the five `UIGestureDetector` signals are `ISignal`: subscribe to them; only the detector raises them |
 | `ILocalization`, `ILocalizationChanged` in `OpenUGD.Core` (corelib) | the same, in `OpenUGD.Presenters` (this package) |
 | `UnityEventExtensions`, `ButtonExtensions` in `UnityEngine.UI` | the same, in `OpenUGD` |
 | `InputFieldExtensions`, `SliderWidgetExtensions`, `HyperlinkWidgetExtensions` | `InputFieldPresenterExtensions`, `SliderFloatPresenterExtensions`, `HyperlinkTextPresenterExtensions` |

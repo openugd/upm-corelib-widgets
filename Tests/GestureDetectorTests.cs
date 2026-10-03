@@ -5,6 +5,7 @@ using OpenUGD.Presenters;
 using OpenUGD.UI;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
 using Object = UnityEngine.Object;
 
 namespace OpenUGD.Widgets.Tests
@@ -137,6 +138,69 @@ namespace OpenUGD.Widgets.Tests
         }
 
         [Test]
+        public void ASecondFingersPress_TakesTheGestureOver()
+        {
+            _detector.OnPointerDown(At(0, 0, 1));
+            _detector.OnPointerDown(At(Far, 0, 2));
+            _detector.OnDrag(At(0, 0, 1));
+            _detector.OnPointerUp(At(0, 0, 1));
+            _detector.OnPointerUp(At(Far, 0, 2));
+
+            CollectionAssert.AreEqual(new[] { "tap" }, _seen,
+                "the first finger's drag and release are not measured against the second press");
+        }
+
+        // --- whose drag it is ---------------------------------------------------------------------------------
+
+        [Test]
+        public void ItsOwnPress_KeepsTheDrag()
+        {
+            var data = At(0, 0);
+            data.pointerPress = _detector.gameObject;
+            data.pointerDrag = _detector.gameObject;
+
+            _detector.OnInitializePotentialDrag(data);
+
+            Assert.AreSame(_detector.gameObject, data.pointerDrag);
+        }
+
+        [Test]
+        public void APressTakenBelowIt_HandsTheDragToTheHandlerAbove()
+        {
+            // A Button inside the gesture area took the press, so the detector has no gesture to follow. Keeping
+            // the drag would cancel the button's click and starve a ScrollRect above; it goes where it would have
+            // gone without the detector. The ScrollRect's GameObject is active because the EventSystem only finds
+            // active, enabled handlers; ScrollRect runs in Edit Mode and needs nothing else to do so.
+            var scroll = new GameObject("scroll");
+            _objects.Add(scroll);
+            scroll.AddComponent<ScrollRect>();
+            _detector.transform.SetParent(scroll.transform, false);
+            var button = NewInactive("button");
+            button.transform.SetParent(_detector.transform, false);
+            var data = At(0, 0);
+            data.pointerPress = button;
+            data.pointerDrag = _detector.gameObject;
+
+            _detector.OnInitializePotentialDrag(data);
+
+            Assert.AreSame(scroll, data.pointerDrag);
+        }
+
+        [Test]
+        public void APressTakenBelowIt_WithNoDragHandlerAbove_LeavesNoDrag()
+        {
+            var button = NewInactive("button");
+            button.transform.SetParent(_detector.transform, false);
+            var data = At(0, 0);
+            data.pointerPress = button;
+            data.pointerDrag = _detector.gameObject;
+
+            _detector.OnInitializePotentialDrag(data);
+
+            Assert.IsNull(data.pointerDrag);
+        }
+
+        [Test]
         public void GesturePresenter_CallsTheDelegateOncePerGesture_AndFollowsTheView()
         {
             var second = new GameObject("second");
@@ -159,8 +223,16 @@ namespace OpenUGD.Widgets.Tests
                 "WG-3: one call per gesture; the replaced detector no longer calls in");
         }
 
-        private static PointerEventData At(float x, float y) =>
-            new PointerEventData(null) { position = new Vector2(x, y) };
+        private static PointerEventData At(float x, float y, int pointer = -1) =>
+            new PointerEventData(null) { position = new Vector2(x, y), pointerId = pointer };
+
+        private GameObject NewInactive(string name)
+        {
+            var go = new GameObject(name);
+            go.SetActive(false);
+            _objects.Add(go);
+            return go;
+        }
 
         private void Invoke(string message) =>
             typeof(UIGestureDetector).GetMethod(message, BindingFlags.Instance | BindingFlags.NonPublic)

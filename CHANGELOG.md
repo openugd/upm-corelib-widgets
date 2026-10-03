@@ -115,7 +115,10 @@ Almost everything below is breaking. Each breaking entry ends with the change to
 - **Breaking: `UIGestureDetector`'s five signals are subscribe-only `ISignal` properties** instead of
   `Signal` (decision 8), so only the detector raises them. It now follows a pointer that leaves the element
   through `IDragHandler`, which means a `ScrollRect` or other drag handler above it no longer receives drags
-  that start on it. The per-frame `Update` is gone: a swipe is tested on each pointer event. `OnDisable`
+  that start on it. A press that a pointer-down handler below the detector takes instead (a `Button` inside
+  the gesture area) is not the detector's: through the new `IInitializePotentialDragHandler` it hands that
+  drag to the drag handler above it, or to none, as if the detector were not there: the button keeps its
+  click, or a `ScrollRect` above takes the drag, as it always did. The per-frame `Update` is gone: a swipe is tested on each pointer event. `OnDisable`
   (which abandons a gesture in progress) and `OnDestroy` are `protected virtual`. Migration: code that called
   `Fire()` on a detector's signal drives its pointer handlers instead; a subclass that declared its own
   `OnDestroy` or `OnDisable` overrides it and calls `base`.
@@ -211,8 +214,11 @@ Almost everything below is breaking. Each breaking entry ends with the change to
   swapped: a movement towards the top of the screen raised `OnSwipeDown`. Ticking
   `detectSwipeOnlyAfterRelease` turned swipes off altogether; it now judges the swipe once, from the release
   position. A press that swiped also raised `OnTap` when released near the point where the swipe fired; a
-  press now reports at most one gesture, and a tap must stay within the threshold throughout. A release past
-  the threshold that no move event reported counts as a swipe.
+  press now reports at most one gesture, and a tap must stay within the threshold throughout (a release
+  exactly on the threshold now counts, so at a threshold of `0` a still press is a tap; it used to be
+  nothing). A release past the threshold that no move event reported counts as a swipe. Only the pointer that
+  pressed is followed: the moves and release of a finger that was already down when a second one pressed were
+  measured against the second press, and could report a swipe or a tap neither finger made.
 - **`WithIntervalUpdate` waits in real time, with one wait per timer** (audit WG-13, UH-23). Every tick
   allocated a new `WaitForSeconds`, which counts scaled time, so a countdown froze while `Time.timeScale` was
   `0`. The timer now reuses one wait in unscaled time, measured with the double-precision clock

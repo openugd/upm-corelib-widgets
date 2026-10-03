@@ -22,12 +22,17 @@ namespace OpenUGD.UI
     /// is followed through move events while it is over the element and drag events wherever it goes, so a
     /// swipe that leaves the element still counts. At most one swipe is reported per press, and a press that
     /// swiped is not also a tap. A tap is a press released within <see cref="swipeThresholdOfScreen"/> of where
-    /// it went down, by a pointer that never strayed further than that. One pointer at a time: a second press
-    /// restarts the gesture, and disabling the component abandons it.
+    /// it went down, by a pointer that never strayed further than that. One pointer at a time: a press by
+    /// another pointer (a second finger) restarts the gesture and from then on only that pointer is followed,
+    /// so the moves and the release of a finger that was already down are ignored. Disabling the component
+    /// abandons the gesture.
     /// </para>
     /// <para>
-    /// <b>The element takes the drag.</b> Because it handles drag events, a <c>ScrollRect</c> or another drag
-    /// handler above it no longer receives drags that start on it.
+    /// <b>The element takes the drag of its own presses.</b> Because it handles drag events, a
+    /// <c>ScrollRect</c> or another drag handler above it no longer receives drags that start on it. A press
+    /// that a pointer-down handler below it takes instead — a <c>Button</c> inside the gesture area — is not
+    /// the detector's: it hands that drag to the drag handler above it, or to none, exactly as if the
+    /// detector were not there — the button keeps its click, or a <c>ScrollRect</c> above takes the drag.
     /// </para>
     /// <para>
     /// <b>Scope.</b> A subscription lasts as long as the subscriber's lifetime, or until this component is
@@ -40,14 +45,15 @@ namespace OpenUGD.UI
     /// <i>Changed in 2.0.0</i> — the signals are <see cref="ISignal"/> instead of <see cref="Signal"/>, so only
     /// the detector raises them. Up and Down follow the direction of travel (they were swapped);
     /// <see cref="detectSwipeOnlyAfterRelease"/> judges the swipe on release (it used to turn swipes off); a
-    /// swipe no longer also raises <see cref="OnTap"/>; a pointer that leaves the element is still followed; the
-    /// per-frame <c>Update</c> is gone, the test running on each pointer event instead; and the signals no
+    /// swipe no longer also raises <see cref="OnTap"/>; a pointer that leaves the element is still followed; only
+    /// the pointer that pressed is followed (any pointer's moves used to count); the per-frame <c>Update</c> is
+    /// gone, the test running on each pointer event instead; and the signals no
     /// longer hang off a scope nested in <see cref="OpenUGD.Lifetime.Eternal"/>, which a never-activated
     /// detector left behind for the rest of the process (audit WG-9, WG-10).
     /// </para>
     /// </remarks>
     public class UIGestureDetector : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IPointerMoveHandler,
-        IDragHandler
+        IInitializePotentialDragHandler, IDragHandler
     {
         private readonly GestureRecognizer _recognizer = new GestureRecognizer();
         private readonly OwnerlessSignal _onSwipeLeft = new OwnerlessSignal();
@@ -128,31 +134,55 @@ namespace OpenUGD.UI
         /// Begins a gesture at the press point, abandoning any gesture still in progress. Called by the
         /// <c>EventSystem</c>; calling it directly synthesises a press.
         /// </summary>
-        /// <param name="data">The pointer event. Only <see cref="PointerEventData.position"/> is read, so a
-        /// hand-built instance carrying just that is enough.</param>
-        public void OnPointerDown(PointerEventData data) => _recognizer.Press(data.position);
+        /// <param name="data">The pointer event. Only <see cref="PointerEventData.position"/> and
+        /// <see cref="PointerEventData.pointerId"/> are read, so a hand-built instance carrying just those is
+        /// enough.</param>
+        public void OnPointerDown(PointerEventData data) => _recognizer.Press(data.position, data.pointerId);
 
         /// <summary>
         /// Follows the pointer while it is over the element, and reports a swipe the moment it crosses the
         /// threshold, unless <see cref="detectSwipeOnlyAfterRelease"/> is set. Ignored while no press is in
-        /// progress.
+        /// progress, and for any pointer but the one that pressed.
         /// </summary>
-        /// <param name="data">The pointer event; only <see cref="PointerEventData.position"/> is read.</param>
+        /// <param name="data">The pointer event; only <see cref="PointerEventData.position"/> and
+        /// <see cref="PointerEventData.pointerId"/> are read.</param>
         public void OnPointerMove(PointerEventData data) => Follow(data);
+
+        /// <summary>
+        /// Called by the <c>EventSystem</c> on a press, before any drag, because this component is the drag
+        /// handler it found. Keeps the drag when the press is this detector's own; otherwise — the press went
+        /// to a pointer-down handler below it, such as a <c>Button</c> inside the gesture area — hands it to
+        /// the drag handler above this GameObject, or to none, as if the detector were not there.
+        /// </summary>
+        /// <param name="data">The pointer event. Its <see cref="PointerEventData.pointerPress"/> says whose
+        /// press it is, and its <see cref="PointerEventData.pointerDrag"/> is replaced when it is not this
+        /// detector's.</param>
+        public void OnInitializePotentialDrag(PointerEventData data)
+        {
+            if (data.pointerPress == gameObject) return;
+
+            var parent = transform.parent;
+            var handler = parent != null ? ExecuteEvents.GetEventHandler<IDragHandler>(parent.gameObject) : null;
+            data.pointerDrag = handler;
+            if (handler != null) ExecuteEvents.Execute(handler, data, ExecuteEvents.initializePotentialDrag);
+        }
 
         /// <summary>
         /// Follows the pointer wherever it goes once the <c>EventSystem</c> has started a drag, including
         /// outside the element; otherwise as <see cref="OnPointerMove"/>.
         /// </summary>
-        /// <param name="data">The pointer event; only <see cref="PointerEventData.position"/> is read.</param>
+        /// <param name="data">The pointer event; only <see cref="PointerEventData.position"/> and
+        /// <see cref="PointerEventData.pointerId"/> are read.</param>
         public void OnDrag(PointerEventData data) => Follow(data);
 
         /// <summary>
         /// Ends the gesture: reports the swipe if one is still due, otherwise <see cref="OnTap"/> if the press
-        /// qualifies. At most one of them.
+        /// qualifies. At most one of them. Ignored for any pointer but the one that pressed.
         /// </summary>
-        /// <param name="data">The pointer event; only <see cref="PointerEventData.position"/> is read.</param>
-        public void OnPointerUp(PointerEventData data) => Raise(_recognizer.Release(data.position, SwipeThreshold));
+        /// <param name="data">The pointer event; only <see cref="PointerEventData.position"/> and
+        /// <see cref="PointerEventData.pointerId"/> are read.</param>
+        public void OnPointerUp(PointerEventData data) =>
+            Raise(_recognizer.Release(data.position, SwipeThreshold, data.pointerId));
 
         /// <summary>
         /// Unity's <c>OnDisable</c>: abandons a gesture in progress, whose release this component may never
@@ -177,7 +207,7 @@ namespace OpenUGD.UI
         private void Follow(PointerEventData data)
         {
             if (!_recognizer.IsPressed) return;
-            Raise(_recognizer.Move(data.position, SwipeThreshold, detectSwipeOnlyAfterRelease));
+            Raise(_recognizer.Move(data.position, SwipeThreshold, detectSwipeOnlyAfterRelease, data.pointerId));
         }
 
         private void Raise(Gesture? gesture)

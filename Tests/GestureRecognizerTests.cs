@@ -179,6 +179,32 @@ namespace OpenUGD.Widgets.Tests
             Assert.IsNull(_recognizer.Move(new Vector2(0, 500), Threshold, false), "a hover after the release");
         }
 
+        // --- one pointer at a time (review of WG-9) -----------------------------------------------------------
+
+        [Test]
+        public void AnotherPointersMovesAndReleases_AreIgnored()
+        {
+            _recognizer.Press(Vector2.zero, 1);
+
+            Assert.IsNull(_recognizer.Move(new Vector2(0, 300), Threshold, false, 2), "a move of another finger");
+            Assert.IsNull(_recognizer.Release(new Vector2(300, 0), Threshold, 2), "a release of another finger");
+            Assert.AreEqual(Gesture.Tap, _recognizer.Release(Vector2.zero, Threshold, 1), "the press is intact");
+        }
+
+        [Test]
+        public void ASecondPointersPress_TakesTheGestureOver_AndTheFirstPointerNoLongerCounts()
+        {
+            // Measured against the second press, the first finger's move would read as a swipe left and its
+            // release as a gesture of the second press.
+            _recognizer.Press(Vector2.zero, 1);
+            _recognizer.Press(new Vector2(500, 0), 2);
+
+            Assert.IsNull(_recognizer.Move(new Vector2(10, 0), Threshold, false, 1));
+            Assert.IsNull(_recognizer.Release(new Vector2(10, 0), Threshold, 1));
+            Assert.IsTrue(_recognizer.IsPressed, "the first finger's release does not end the second's press");
+            Assert.AreEqual(Gesture.Up, _recognizer.Move(new Vector2(500, 300), Threshold, false, 2));
+        }
+
         // --- the component, by reflection (WG-10) ------------------------------------------------------------
 
         [Test]
@@ -211,6 +237,8 @@ namespace OpenUGD.Widgets.Tests
 
             Assert.IsTrue(typeof(IDragHandler).IsAssignableFrom(typeof(UIGestureDetector)),
                 "a pointer that leaves the element is followed through drag events");
+            Assert.IsTrue(typeof(IInitializePotentialDragHandler).IsAssignableFrom(typeof(UIGestureDetector)),
+                "a drag whose press went to a handler below the detector is handed on");
             Assert.IsNull(typeof(UIGestureDetector).GetMethod("Update", declared));
 
             foreach (var message in new[] { "OnDisable", "OnDestroy" })

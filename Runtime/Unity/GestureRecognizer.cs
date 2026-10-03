@@ -5,7 +5,9 @@ namespace OpenUGD.UI
 {
     // The gesture rules of UIGestureDetector: pointer positions in, at most one gesture out per call. It makes no
     // engine call (Vector2 is plain C#, and the caller passes the threshold in pixels), so level 1 tests every
-    // rule without Unity. One pointer at a time: a press restarts whatever gesture was in progress.
+    // rule without Unity. One pointer at a time: a press restarts whatever gesture was in progress and makes its
+    // pointer the one followed, so moves and releases of any other pointer (a finger that was already down) are
+    // ignored instead of being measured against the new press.
     //
     // The rules, in screen pixels with y counting upwards as PointerEventData.position does:
     // - a swipe is a movement whose dominant axis exceeds the threshold; its direction is the direction of travel,
@@ -18,23 +20,26 @@ namespace OpenUGD.UI
     internal sealed class GestureRecognizer
     {
         private Vector2 _origin;
+        private int _pointer;
         private bool _pressed;
         private bool _swiped;
         private bool _strayed;
 
         public bool IsPressed => _pressed;
 
-        public void Press(Vector2 position)
+        // pointer is PointerEventData.pointerId; callers with a single pointer can leave it at 0.
+        public void Press(Vector2 position, int pointer = 0)
         {
             _origin = position;
+            _pointer = pointer;
             _pressed = true;
             _swiped = false;
             _strayed = false;
         }
 
-        public Gesture? Move(Vector2 position, float threshold, bool swipeOnRelease)
+        public Gesture? Move(Vector2 position, float threshold, bool swipeOnRelease, int pointer = 0)
         {
-            if (!_pressed || _swiped) return null;
+            if (!_pressed || _swiped || pointer != _pointer) return null;
 
             if (Vector2.Distance(_origin, position) > threshold) _strayed = true;
             if (swipeOnRelease) return null;
@@ -44,9 +49,9 @@ namespace OpenUGD.UI
             return swipe;
         }
 
-        public Gesture? Release(Vector2 position, float threshold)
+        public Gesture? Release(Vector2 position, float threshold, int pointer = 0)
         {
-            if (!_pressed) return null;
+            if (!_pressed || pointer != _pointer) return null;
 
             _pressed = false;
             if (_swiped) return null;

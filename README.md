@@ -394,7 +394,7 @@ run on .NET without the editor.
 This section is for users of `com.openugd.corelib.widgets` 0.5.0. Version 2.0.0 requires Unity 6000.0 or newer
 and the 2.0 versions of the OpenUGD family, and is licensed under Apache-2.0 (0.5.0 shipped a modified MIT text).
 `com.openugd.corelib` 2.0 changes the presenter base class itself, and `com.openugd.context` replaces
-`com.openugd.dependency.injection`; read their upgrade notes too. There are no `[Obsolete]` forwarding types: the
+`com.openugd.dependency.injection`; their READMEs cover those changes. There are no `[Obsolete]` forwarding types: the
 base class, the lifecycle hooks and the DI layer change together, so old code does not compile either way.
 
 | What | 0.5.0 | 2.0.0 | What to do |

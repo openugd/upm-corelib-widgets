@@ -7,32 +7,17 @@ namespace OpenUGD.Presenters
     /// <see cref="ILocalization"/> is registered.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>Localisation is optional.</b> <see cref="ILocalization"/> and <see cref="ILocalizationChanged"/> are
-    /// injected with <c>[Inject(Optional = true)]</c>: with neither registered the model renders by the
-    /// no-localisation rule of <see cref="TextModel.Resolve"/>, and with <see cref="ILocalizationChanged"/>
-    /// registered the label renders again on every language change, until the presenter closes.
-    /// </para>
-    /// <para>
-    /// Rendering is the one assignment <c>View.text = Model.Resolve(localization)</c>. Nothing else on the
-    /// view is touched.
-    /// </para>
+    /// Localisation and re-rendering on a language change are <see cref="TextModelPresenter{TView}"/>'s.
+    /// Rendering is the one assignment <c>View.text = Model.Resolve(localization)</c>; nothing else on the view
+    /// is touched.
     /// </remarks>
-    public class TextPresenter : Presenter<Text, TextModel>
+    public class TextPresenter : TextModelPresenter<Text>
     {
-        [Inject(Optional = true)] private ILocalization _localization;
-        [Inject(Optional = true)] private ILocalizationChanged _localizationChanged;
-
         /// <summary>
-        /// Subscribes to <see cref="ILocalizationChanged"/>, when one is registered, for the life of the
-        /// presenter.
+        /// Writes <paramref name="text"/> into <see cref="Text.text"/>.
         /// </summary>
-        protected override void OnInitialize() => _localizationChanged?.Subscribe(Lifetime, Refresh);
-
-        /// <summary>
-        /// Writes <see cref="TextModel.Resolve"/> of the model into the view. Idempotent.
-        /// </summary>
-        protected override void OnRefresh() => View.text = Model.Resolve(_localization);
+        /// <param name="text">The resolved text.</param>
+        protected override void Render(string text) => View.text = text;
     }
 
     /// <summary>

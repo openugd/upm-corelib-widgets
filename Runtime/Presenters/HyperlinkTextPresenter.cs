@@ -9,10 +9,9 @@ namespace OpenUGD.Presenters
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>The same localisation as the other text presenters.</b> <see cref="ILocalization"/> and
-    /// <see cref="ILocalizationChanged"/> are injected with <c>[Inject(Optional = true)]</c>, the model
-    /// renders by the rules of <see cref="TextModel.Resolve"/>, and the label renders again on every language
-    /// change. A translation therefore carries its own <c>&lt;link&gt;</c> tags.
+    /// <b>The same localisation as the other text presenters</b>, from <see cref="TextModelPresenter{TView}"/>:
+    /// the model renders by the rules of <see cref="TextModel.Resolve"/>, and again on every language change. A
+    /// translation therefore carries its own <c>&lt;link&gt;</c> tags.
     /// </para>
     /// <para>
     /// <b>The label.</b> Rendering writes into the view's <see cref="HyperlinkText.Text"/>, which is filled in
@@ -23,25 +22,20 @@ namespace OpenUGD.Presenters
     /// </para>
     /// <para>
     /// <i>Changed in 2.0.0</i> — the model is a <see cref="TextModel"/> instead of a <c>string</c> (a
-    /// <c>string</c> still converts implicitly), and translation happens here, on every render, instead of
-    /// once inside the helper that attached the presenter.
+    /// <c>string</c> still converts implicitly), and translation happens on every render, by the same rule as
+    /// the other text presenters, instead of once inside the helper that attached the presenter — which also
+    /// wrote the translations into the caller's argument array (audit WG-7).
     /// </para>
     /// </remarks>
-    public class HyperlinkTextPresenter : Presenter<HyperlinkText, TextModel>
+    public class HyperlinkTextPresenter : TextModelPresenter<HyperlinkText>
     {
-        [Inject(Optional = true)] private ILocalization _localization;
-        [Inject(Optional = true)] private ILocalizationChanged _localizationChanged;
-
         /// <summary>
-        /// Subscribes to <see cref="ILocalizationChanged"/>, when one is registered, for the life of the
-        /// presenter.
+        /// Writes <paramref name="text"/> into the view's label.
         /// </summary>
-        protected override void OnInitialize() => _localizationChanged?.Subscribe(Lifetime, Refresh);
-
-        /// <summary>
-        /// Writes <see cref="TextModel.Resolve"/> of the model into the view's label. Idempotent.
-        /// </summary>
-        protected override void OnRefresh()
+        /// <param name="text">The resolved text.</param>
+        /// <exception cref="System.InvalidOperationException">The view's GameObject has no
+        /// <see cref="TMPro.TMP_Text"/>.</exception>
+        protected override void Render(string text)
         {
             var label = View.ResolveText();
             if (label == null)
@@ -49,7 +43,7 @@ namespace OpenUGD.Presenters
                     $"{nameof(HyperlinkTextPresenter)}: the HyperlinkText on '{View.name}' has no TMP_Text to " +
                     "render into. Add a TextMeshPro label to that GameObject, or assign HyperlinkText.Text.");
 
-            label.text = Model.Resolve(_localization);
+            label.text = text;
         }
     }
 

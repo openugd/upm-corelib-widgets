@@ -35,6 +35,11 @@ Almost everything below is breaking. Each breaking entry ends with the change to
   link is reported first, with a `HyperlinkClick` a handler can mark `Handled` to keep the link from being
   opened, and the serialized `OpenUrls` (default `true`) turns opening off altogether. Two `protected virtual`
   seams for subclasses: `FindLinkId` (the hit test) and `OpenUrl` (`Application.OpenURL` by default).
+- **`TextModelPresenter<TView>`** (audit WG-7): the one rendering and localisation design of the text
+  presenters — the optional `ILocalization` and `ILocalizationChanged`, the re-render on a language change,
+  and the render through `TextModel.Resolve` — which `TextPresenter`, `TMPPresenter` and
+  `HyperlinkTextPresenter` now derive from instead of each carrying a copy. A presenter for a text widget of
+  your own derives from it and implements `Render(string)`.
 - **The Keyboard Shortcuts sample** (`Samples~/KeyboardShortcuts`, listed under `samples` in
   `package.json`), which replaces the removed `AddKeyboard`. It is a recipe you copy into your project,
   not an API: `SubscribeOnKeyDown(presenter, coroutines, key, onKeyDown)`, about 25 lines, plus an

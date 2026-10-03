@@ -150,6 +150,7 @@ on. Also in the package:
 | Type | Namespace | What it is |
 | --- | --- | --- |
 | `TextModel` | `OpenUGD.Presenters` | A text or key plus optional arguments. `TextModel.Resolve(localization)` is the rule the three text presenters render by. A `string` converts to it implicitly. |
+| `TextModelPresenter<TView>` | `OpenUGD.Presenters` | The base of the three text presenters: the optional localisation, the re-render on a language change and the render through `TextModel.Resolve`. Derive from it and implement `Render(string)` for a text widget of your own. |
 | `ToggleModel`, `SliderIntModel`, `Gesture`, `GestureDelegate` | `OpenUGD.Presenters` | Models and the gesture callback of the presenters above. |
 | `ILocalization`, `ILocalizationChanged` | `OpenUGD.Presenters` | The optional localisation services the text presenters inject. See *Localisation*. |
 | `TMPPresenterIntervalUpdateExtensions` | `OpenUGD.Presenters` | `label.WithIntervalUpdate(coroutines, scope => text[, interval])` sets a `TMPPresenter`'s model on a timer until the presenter closes or the callback disposes its scope. |

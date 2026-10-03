@@ -53,8 +53,9 @@ Almost everything below is breaking. Each breaking entry ends with the change to
   when the presenter's `Lifetime` terminates and re-checks that lifetime after every frame's wait, so it
   never fires after the presenter has closed.
 - **A test suite**, `com.openugd.corelib.widgets.tests` (EditMode). The tests that need no engine cover the
-  helpers, the signals, `TextModel.Resolve`, `UnityEventExtensions` and the interval updater; the tests
-  marked `RequiresUnity` drive real uGUI components and cover the fixes below.
+  helpers, the signals, `TextModel.Resolve`, `TextModelPresenter`, `UnityEventExtensions`, the interval
+  updater, and the gesture rules and signals behind `UIGestureDetector`; the tests marked `RequiresUnity`
+  drive real uGUI components, `UIGestureDetector` and `HyperlinkText`, and cover the fixes below.
 - This changelog.
 
 ### Moved

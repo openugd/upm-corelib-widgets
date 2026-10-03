@@ -40,6 +40,9 @@ Almost everything below is breaking. Each breaking entry ends with the change to
   Input Manager under `ENABLE_LEGACY_INPUT_MANAGER`, and otherwise starts nothing. It stops its coroutine
   when the presenter's `Lifetime` terminates and re-checks that lifetime after every frame's wait, so it
   never fires after the presenter has closed.
+- **A test suite**, `com.openugd.corelib.widgets.tests` (EditMode). The tests that need no engine cover the
+  helpers, the signals, `TextModel.Resolve`, `UnityEventExtensions` and the interval updater; the tests
+  marked `RequiresUnity` drive real uGUI components and cover the fixes below.
 - This changelog.
 
 ### Moved

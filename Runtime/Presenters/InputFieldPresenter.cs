@@ -20,6 +20,9 @@ namespace OpenUGD.Presenters
         private Signal<string> _valueChanged;
         private bool _rendering;
 
+        // Set by AddInputField(…, maxLength) and written to each view as it is attached; null leaves the field's own.
+        internal int? CharacterLimit;
+
         /// <summary>
         /// Raised with the field's text for every change it reports — typing, or code assigning
         /// <c>TMP_InputField.text</c> — and never for the presenter's own render.
@@ -43,9 +46,14 @@ namespace OpenUGD.Presenters
                     "attached, or it has been destroyed. Read Model for the text last set.");
 
         /// <summary>
-        /// Adds the change listener to the attached field, scoped to its <c>ViewLifetime</c>.
+        /// Writes the character limit given to <c>AddInputField</c>, if any, then adds the change listener to the
+        /// attached field, scoped to its <c>ViewLifetime</c>.
         /// </summary>
-        protected override void OnViewAdded() => View.onValueChanged.Subscribe(ViewLifetime, OnValueChanged);
+        protected override void OnViewAdded()
+        {
+            if (CharacterLimit.HasValue) View.characterLimit = CharacterLimit.Value;
+            View.onValueChanged.Subscribe(ViewLifetime, OnValueChanged);
+        }
 
         /// <summary>
         /// Writes the model into the field without notification; a <c>null</c> model empties it.
@@ -94,15 +102,16 @@ namespace OpenUGD.Presenters
         }
 
         /// <summary>
-        /// As <see cref="AddInputField(Presenter,TMP_InputField,string)"/>, and first sets the field's
-        /// <c>characterLimit</c>.
+        /// As <see cref="AddInputField(Presenter,TMP_InputField,string)"/>, and sets the <c>characterLimit</c> of
+        /// every field the presenter is given.
         /// </summary>
         /// <remarks>
-        /// The limit is written to the field once and stays after the presenter closes. It limits typing, not the
-        /// text the presenter writes.
+        /// The limit is written to each view as it is attached, before the first render, and stays on that field
+        /// after the view is replaced or the presenter closes. It limits typing, not the text the presenter writes.
         /// </remarks>
         /// <param name="parent">An attached, live presenter.</param>
-        /// <param name="view">The field, or <c>null</c> to render once a view is set (no limit is set then).</param>
+        /// <param name="view">The field, or <c>null</c> to render, listen and set the limit once a view is set.
+        /// </param>
         /// <param name="value">The initial text; <c>null</c> empties the field.</param>
         /// <param name="maxLength">The <c>characterLimit</c>; <c>0</c> or less means no limit.</param>
         /// <returns>The attached presenter.</returns>
@@ -112,7 +121,7 @@ namespace OpenUGD.Presenters
             int maxLength)
         {
             var presenter = parent.AddPresenter(new InputFieldPresenter());
-            if (view != null) view.characterLimit = maxLength;
+            presenter.CharacterLimit = maxLength;
             presenter.SetModel(value);
             presenter.SetView(view);
             return presenter;

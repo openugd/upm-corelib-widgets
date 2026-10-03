@@ -168,6 +168,21 @@ namespace OpenUGD.Widgets.Tests
             Assert.AreEqual(12, view.characterLimit);
         }
 
+        [Test]
+        public void AddInputField_WithNoViewYet_SetsTheLimitOnEveryViewItIsGiven()
+        {
+            // Like every helper, a null view means "once a view is set", the limit included.
+            var presenter = Root.AddInputField(null, "", 12);
+            var first = NewView<TMP_InputField>();
+            var second = NewView<TMP_InputField>();
+
+            presenter.SetView(first);
+            presenter.SetView(second);
+
+            Assert.AreEqual(12, first.characterLimit, "stays on a replaced view");
+            Assert.AreEqual(12, second.characterLimit);
+        }
+
         // --- WG-4: listeners follow the view -----------------------------------------------------------------
 
         [Test]

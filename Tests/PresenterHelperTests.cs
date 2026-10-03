@@ -100,6 +100,14 @@ namespace OpenUGD.Widgets.Tests
             StringAssert.Contains("InputValue", thrown.Message);
         }
 
+        [Test]
+        public void AddInputField_WithNoViewYet_KeepsTheLimitForTheViewToCome()
+        {
+            // Writing it to the field is in WidgetViewTests; here, that a null view does not drop it.
+            Assert.AreEqual(4, Root.AddInputField(null, "typed", 4).CharacterLimit);
+            Assert.IsNull(Root.AddInputField(null, "typed").CharacterLimit, "no limit asked for, none written");
+        }
+
         private static void AssertAttached<TView, TModel>(Presenter<TView, TModel> presenter, TModel model)
             where TView : class
         {

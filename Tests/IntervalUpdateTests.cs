@@ -8,13 +8,14 @@ using UnityEngine;
 
 namespace OpenUGD.Widgets.Tests
 {
-    // WithIntervalUpdate takes its coroutine runner as a parameter now that Presenter.Context is gone. A fake
-    // runner that steps the coroutine by hand makes the timer observable without the engine.
+    // WithIntervalUpdate takes its coroutine runner as a parameter now that Presenter.Context is gone, and drives
+    // any presenter with a model (audit WG-13). A fake runner that steps the coroutine by hand makes the timer
+    // observable without the engine.
     [TestFixture]
     public class IntervalUpdateTests : PresenterFixture
     {
         [Test]
-        public void TheFirstUpdate_HappensAsTheCoroutineStarts()
+        public void TheFirstUpdate_HappensInsideTheCall_OnceTheCoroutineRuns()
         {
             var runner = new SteppingRunner();
             var label = Root.AddText((TMPro.TMP_Text)null, "initial");
@@ -22,6 +23,8 @@ namespace OpenUGD.Widgets.Tests
             label.WithIntervalUpdate(runner, _ => "tick");
 
             Assert.AreEqual("tick", (string)label.Model);
+            Assert.AreEqual(1, runner.Started);
+            Assert.IsTrue(runner.IsRunning, "the coroutine's first step only waits, so it is still running");
         }
 
         [Test]
@@ -93,20 +96,111 @@ namespace OpenUGD.Widgets.Tests
         }
 
         [Test]
-        public void ACallbackThatThrowsOnTheFirstUpdate_LeavesThePresenterSafeToClose()
+        public void ACallbackThatThrowsOnTheFirstUpdate_StopsTheTimer_AndTheExceptionReachesTheCaller()
         {
-            // Unity logs an exception from a coroutine instead of rethrowing it, and hands back null for a
-            // coroutine that already ended inside StartCoroutine. Closing must not then call StopCoroutine(null).
             var runner = new SteppingRunner();
             var label = Root.AddText((TMPro.TMP_Text)null, "");
 
             Func<IDisposable, string> failing = _ => throw new InvalidOperationException("first update");
 
-            label.WithIntervalUpdate(runner, failing);
+            var thrown = Assert.Throws<InvalidOperationException>(() => label.WithIntervalUpdate(runner, failing));
 
-            Assert.IsInstanceOf<InvalidOperationException>(runner.Logged);
+            Assert.AreEqual("first update", thrown.Message);
+            Assert.AreEqual(1, runner.Stopped, "the timer ended and stopped its coroutine");
+            Assert.IsNull(runner.Logged);
             Assert.DoesNotThrow(() => label.Close());
-            Assert.AreEqual(0, runner.Stopped);
+            Assert.AreEqual(1, runner.Stopped);
+        }
+
+        [Test]
+        public void ACallbackThatThrowsOnALaterTick_EndsTheCoroutine_AndThePresenterIsStillSafeToClose()
+        {
+            var runner = new SteppingRunner();
+            var label = Root.AddText((TMPro.TMP_Text)null, "");
+            var calls = 0;
+
+            label.WithIntervalUpdate(runner, _ => ++calls == 2 ? throw new InvalidOperationException("tick") : "ok");
+            Assert.IsFalse(runner.Step());
+
+            Assert.IsInstanceOf<InvalidOperationException>(runner.Logged, "Unity logs it");
+            Assert.DoesNotThrow(() => label.Close());
+        }
+
+        // --- WG-13, UH-23: one realtime wait per timer --------------------------------------------------------
+
+        [Test]
+        public void EveryTick_YieldsTheSameRealtimeWait()
+        {
+            // WG-13/UH-23: each tick yielded a new WaitForSeconds - an allocation per tick, in scaled time, so the
+            // label froze while Time.timeScale was 0.
+            var runner = new SteppingRunner();
+            var label = Root.AddText((TMPro.TMP_Text)null, "");
+
+            label.WithIntervalUpdate(runner, _ => "tick", TimeSpan.FromSeconds(2));
+            var first = runner.Current;
+            runner.Step();
+            runner.Step();
+
+            Assert.IsInstanceOf<IntervalUpdateExtensions.RealtimeWait>(first);
+            Assert.AreSame(first, runner.Current);
+            Assert.AreEqual(2.0, ((IntervalUpdateExtensions.RealtimeWait)first).Seconds);
+        }
+
+        [Test]
+        public void AnIntervalOfZeroOrLess_WaitsOneFrame()
+        {
+            var runner = new SteppingRunner();
+            var label = Root.AddText((TMPro.TMP_Text)null, "");
+            var calls = 0;
+
+            label.WithIntervalUpdate(runner, _ => (++calls).ToString(), TimeSpan.Zero);
+            Assert.IsNull(runner.Current);
+            runner.Step();
+
+            Assert.AreEqual(2, calls);
+            Assert.IsNull(runner.Current);
+        }
+
+        [Test]
+        public void TheRealtimeWait_CountsTheGivenClock_AndRearmsForTheNextTick()
+        {
+            // Binary fractions, so the arithmetic is exact. 2^20 s is about 12 days of uptime, where a float clock
+            // (WaitForSecondsRealtime's) has a resolution of 0.125 s and this interval would round away to nothing.
+            const double interval = 1.0 / 1024;
+            var now = 1048576.0;
+            var wait = new IntervalUpdateExtensions.RealtimeWait(interval, () => now);
+
+            Assert.IsTrue(wait.keepWaiting, "a sub-millisecond interval still waits");
+            now += interval / 2;
+            Assert.IsTrue(wait.keepWaiting);
+            now += interval / 2;
+            Assert.IsFalse(wait.keepWaiting, "done");
+
+            Assert.IsTrue(wait.keepWaiting, "re-armed: the next tick waits again");
+            now += interval;
+            Assert.IsFalse(wait.keepWaiting);
+        }
+
+        // --- WG-13: any presenter with a model ----------------------------------------------------------------
+
+        [Test]
+        public void AnyPresenterWithAModel_CanBeDriven()
+        {
+            var runner = new SteppingRunner();
+            var slider = Root.AddSliderFloat(null, 0f);
+            var input = Root.AddInputField(null, "");
+            var text = Root.AddText((UnityEngine.UI.Text)null, "");
+            var link = Root.AddHyperlinkText(null, "");
+
+            slider.WithIntervalUpdate(runner, _ => 0.5f);
+            input.WithIntervalUpdate(runner, _ => "typed");
+            text.WithIntervalUpdate(runner, _ => "legacy");
+            link.WithIntervalUpdate(runner, _ => new TextModel { Format = "{0}", Keys = new object[] { 1 } });
+
+            Assert.AreEqual(0.5f, slider.Model);
+            Assert.AreEqual("typed", input.Model);
+            Assert.AreEqual("legacy", (string)text.Model);
+            Assert.AreEqual(1, link.Model.Keys[0]);
         }
 
         [Test]
@@ -123,7 +217,7 @@ namespace OpenUGD.Widgets.Tests
 
             // Had the provider kept the coroutine after all, it would find its timer already over.
             Assert.IsFalse(runner.Refused.MoveNext());
-            Assert.AreEqual(0, calls);
+            Assert.AreEqual(0, calls, "the callback is never called");
         }
 
         [Test]
@@ -144,6 +238,11 @@ namespace OpenUGD.Widgets.Tests
 
             public int Started;
             public int Stopped;
+
+            public bool IsRunning => _running != null;
+
+            // What the coroutine last yielded.
+            public object Current { get; private set; }
             public Exception Logged;
             public Exception RefuseToStart;
             public IEnumerator Refused;
@@ -177,7 +276,12 @@ namespace OpenUGD.Widgets.Tests
                 if (_running == null) return false;
                 try
                 {
-                    if (_running.MoveNext()) return true;
+                    var running = _running;
+                    if (running.MoveNext())
+                    {
+                        Current = running.Current;
+                        return true;
+                    }
                 }
                 catch (Exception e)
                 {

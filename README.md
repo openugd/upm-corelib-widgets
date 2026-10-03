@@ -153,7 +153,7 @@ on. Also in the package:
 | `TextModelPresenter<TView>` | `OpenUGD.Presenters` | The base of the three text presenters: the optional localisation, the re-render on a language change and the render through `TextModel.Resolve`. Derive from it and implement `Render(string)` for a text widget of your own. |
 | `ToggleModel`, `SliderIntModel`, `Gesture`, `GestureDelegate` | `OpenUGD.Presenters` | Models and the gesture callback of the presenters above. |
 | `ILocalization`, `ILocalizationChanged` | `OpenUGD.Presenters` | The optional localisation services the text presenters inject. See *Localisation*. |
-| `TMPPresenterIntervalUpdateExtensions` | `OpenUGD.Presenters` | `label.WithIntervalUpdate(coroutines, scope => text[, interval])` sets a `TMPPresenter`'s model on a timer until the presenter closes or the callback disposes its scope. |
+| `IntervalUpdateExtensions` | `OpenUGD.Presenters` | `presenter.WithIntervalUpdate(coroutines, scope => model[, interval])` sets any presenter's model on a timer, in real time, until the presenter closes or the callback disposes its scope. A text presenter also takes `scope => "text"`. |
 | `UnityEventExtensions` | `OpenUGD` | `unityEvent.Subscribe(lifetime, listener)` for `UnityEvent` through `UnityEvent<T0, T1, T2, T3>`: adds the listener and removes it when the lifetime ends. The button, toggle, slider and input field presenters wire their views with it. |
 | `ButtonExtensions` | `OpenUGD` | `button.SubscribeOnClick(lifetime, listener)`, the same for a button no presenter drives. |
 | `HyperlinkText`, `HyperlinkClick` | `OpenUGD.UI` | A `MonoBehaviour` that makes the `<link>` tags of a TextMeshPro label clickable. A click raises `LinkClicked` first; the link id is then opened with `Application.OpenURL` unless a handler marked the `HyperlinkClick` handled or `OpenUrls` is off. |
@@ -231,6 +231,7 @@ a presenter, so that is what they are called now. Every row below is a compile e
 | `rawImage.UpdateRawImage(texture)` | `rawImage.SetModel(texture)` |
 | `slider.UpdateSliderInt(model)` | `slider.SetModel(model)` |
 | `label.WithIntervalUpdate(text)` | `label.WithIntervalUpdate(coroutines, text)`, with an injected `ICoroutineProvider` |
+| `TMPPresenterIntervalUpdateExtensions` | `IntervalUpdateExtensions` |
 | `ILocalization`, `ILocalizationChanged` in `OpenUGD.Core` (corelib) | the same, in `OpenUGD.Presenters` (this package) |
 | `UnityEventExtensions`, `ButtonExtensions` in `UnityEngine.UI` | the same, in `OpenUGD` |
 | `InputFieldExtensions`, `SliderWidgetExtensions`, `HyperlinkWidgetExtensions` | `InputFieldPresenterExtensions`, `SliderFloatPresenterExtensions`, `HyperlinkTextPresenterExtensions` |

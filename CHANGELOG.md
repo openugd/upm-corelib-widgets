@@ -96,12 +96,18 @@ Almost everything below is breaking. Each breaking entry ends with the change to
   again on a language change. Its format overload now translates the format too, not only the arguments,
   and an empty translation is no longer replaced by the key. Migration: a `string` still converts to a
   `TextModel`; give a translation of the format its own `<link>` tags and placeholders.
-- **Breaking: `TMPPresenterIntervalUpdateExtensions.WithIntervalUpdate` takes the `ICoroutineProvider` as
-  its second parameter** instead of resolving it from the removed `Presenter.Context`, and its first
-  parameter is named `presenter` instead of `parent`. Arguments are validated before anything starts, a
+- **Breaking: `TMPPresenterIntervalUpdateExtensions` is `IntervalUpdateExtensions`, and its
+  `WithIntervalUpdate` takes the `ICoroutineProvider` as its second parameter** instead of resolving it from
+  the removed `Presenter.Context`; its first parameter is named `presenter` instead of `parent`. It drives any
+  `Presenter<TView, TModel>` from a callback returning that `TModel` (audit WG-13), not only a
+  `TMPPresenter`; a presenter whose model is a `TextModel` also takes a callback returning a `string`. It
+  returns the presenter as `Presenter<TView, TModel>`. Arguments are validated before anything starts, a
   coroutine that cannot be started no longer leaves the timer's scope behind, and on a presenter that has
-  already closed nothing is started. Migration: inject an `ICoroutineProvider` into the calling presenter
-  and write `label.WithIntervalUpdate(_coroutines, text)`.
+  already closed nothing is started. The first update now happens inside the call after the coroutine has
+  started, so an exception from it reaches the caller (and stops the timer) instead of being logged by
+  Unity. Migration: inject an `ICoroutineProvider` into the calling presenter and write
+  `label.WithIntervalUpdate(_coroutines, text)`; a variable that held the result as a `TMPPresenter` keeps
+  the presenter it called this on instead.
 - **Breaking: `UIGestureDetector`'s five signals are subscribe-only `ISignal` properties** instead of
   `Signal` (decision 8), so only the detector raises them. It now follows a pointer that leaves the element
   through `IDragHandler`, which means a `ScrollRect` or other drag handler above it no longer receives drags
@@ -203,6 +209,11 @@ Almost everything below is breaking. Each breaking entry ends with the change to
   position. A press that swiped also raised `OnTap` when released near the point where the swipe fired; a
   press now reports at most one gesture, and a tap must stay within the threshold throughout. A release past
   the threshold that no move event reported counts as a swipe.
+- **`WithIntervalUpdate` waits in real time, with one wait per timer** (audit WG-13, UH-23). Every tick
+  allocated a new `WaitForSeconds`, which counts scaled time, so a countdown froze while `Time.timeScale` was
+  `0`. The timer now reuses one wait in unscaled time, measured with the double-precision clock
+  (`Time.realtimeSinceStartupAsDouble`) because the float clock behind `WaitForSecondsRealtime` rounds a short
+  interval away to nothing after a long session; an interval of zero or less waits one frame.
 - **`HyperlinkText` hit-tests with the press camera** (audit WG-11). It passed no camera to
   `TMP_TextUtilities.FindIntersectingLink`, so under a camera-space or world-space canvas clicks did not line
   up with the links; it uses `PointerEventData.pressEventCamera`. Every link id was handed to

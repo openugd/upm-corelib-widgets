@@ -4,46 +4,26 @@ using UnityEngine.UI;
 namespace OpenUGD.Presenters
 {
     /// <summary>
-    /// Drives a <see cref="Slider"/> whose model is its value, and reports every change the slider makes
-    /// through the <see cref="ValueChanged"/> signal.
+    /// Renders a <c>float</c> on a <see cref="Slider"/> and reports the slider's changes through
+    /// <see cref="ValueChanged"/>.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b><see cref="float.NaN"/> means "leave it alone".</b> A <c>float</c> has no unset state, so a NaN model
-    /// renders nothing and the slider keeps the position the scene authored.
-    /// </para>
-    /// <para>
-    /// <b>Rendering never echoes.</b> The value is written with <c>Slider.SetValueWithoutNotify</c>, so a
-    /// render raises no <c>onValueChanged</c> and never reaches <see cref="ValueChanged"/>. Only the value is
-    /// written: <c>minValue</c>, <c>maxValue</c> and <c>wholeNumbers</c> stay as authored, and the slider
-    /// clamps and rounds the written value by them.
-    /// </para>
-    /// <para>
-    /// <b>One listener per attached view</b>, scoped to its <c>ViewLifetime</c>, so swapping or detaching the
-    /// view moves or removes the listener.
-    /// </para>
+    /// A <see cref="float.NaN"/> model leaves the slider where it is. The value is written with
+    /// <c>SetValueWithoutNotify</c>, so a render is never reported; <c>minValue</c>, <c>maxValue</c> and
+    /// <c>wholeNumbers</c> are left as authored and clamp the written value. One listener is added per attached
+    /// view, on its <c>ViewLifetime</c>.
     /// </remarks>
     public class SliderFloatPresenter : Presenter<Slider, float>
     {
         private Signal<float> _valueChanged;
 
         /// <summary>
-        /// Fires with the slider's new value for every change the attached slider reports — the user dragging,
-        /// or code assigning <c>Slider.value</c> or its range — and never for the presenter's own render. The
-        /// value is the slider's own, already clamped and rounded, so it need not equal the model.
+        /// Raised with the slider's value for every change it reports — a drag, or code assigning
+        /// <c>Slider.value</c> or its range — and never for the presenter's own render. The value is the slider's,
+        /// after clamping, so it can differ from the model.
         /// </summary>
         /// <remarks>
-        /// <para>
-        /// Created on first read and scoped to <see cref="Presenter.Lifetime"/>: every subscription ends at
-        /// the earlier of the subscriber's lifetime and this presenter closing.
-        /// </para>
-        /// <para>
-        /// <i>Changed in 2.0.0</i> — replaces the presenter itself implementing <c>ISignal&lt;float&gt;</c>:
-        /// write <c>presenter.ValueChanged.Subscribe(lifetime, handler)</c> where you wrote
-        /// <c>presenter.Subscribe(lifetime, handler)</c>. It no longer reports the presenter's own renders, and
-        /// using it before attach throws <see cref="InvalidOperationException"/> instead of
-        /// <see cref="NullReferenceException"/>.
-        /// </para>
+        /// Created on first read and scoped to <see cref="Presenter.Lifetime"/>.
         /// </remarks>
         /// <exception cref="InvalidOperationException">Read before the presenter is attached.</exception>
         public ISignal<float> ValueChanged => _valueChanged ??= new Signal<float>(Lifetime);
@@ -54,8 +34,7 @@ namespace OpenUGD.Presenters
         protected override void OnViewAdded() => View.onValueChanged.Subscribe(ViewLifetime, OnValueChanged);
 
         /// <summary>
-        /// Writes the model to the slider without notification, unless it is <see cref="float.NaN"/>.
-        /// Idempotent.
+        /// Writes the model without notification, unless it is <see cref="float.NaN"/>.
         /// </summary>
         protected override void OnRefresh()
         {
@@ -66,23 +45,21 @@ namespace OpenUGD.Presenters
     }
 
     /// <summary>
-    /// One-call construction of a <see cref="SliderFloatPresenter"/>, optionally with a change handler.
+    /// Creates <see cref="SliderFloatPresenter"/>s.
     /// </summary>
     public static class SliderFloatPresenterExtensions
     {
         /// <summary>
-        /// Creates a <see cref="SliderFloatPresenter"/> under <paramref name="parent"/>, sets its model to
-        /// <paramref name="value"/> and then its view to <paramref name="view"/>, which renders it once.
+        /// Attaches a <see cref="SliderFloatPresenter"/> under <paramref name="parent"/>, then sets its model and
+        /// its view.
         /// </summary>
-        /// <param name="parent">The presenter to attach to. It must be attached and alive; the new presenter
-        /// closes no later than it does.</param>
-        /// <param name="view">The slider. <c>null</c> attaches a presenter that renders when a view is set.
+        /// <param name="parent">An attached, live presenter. The new presenter closes no later than it does.</param>
+        /// <param name="view">The slider, or <c>null</c> to render once a view is set.</param>
+        /// <param name="value">The value to show; <see cref="float.NaN"/>, the default, leaves the slider alone.
         /// </param>
-        /// <param name="value">The value to show. The default, <see cref="float.NaN"/>, leaves the slider where
-        /// the scene put it.</param>
         /// <returns>The attached presenter.</returns>
-        /// <exception cref="InvalidOperationException"><paramref name="parent"/> has not been attached, or has
-        /// closed.</exception>
+        /// <exception cref="InvalidOperationException"><paramref name="parent"/> is not attached, or has closed.
+        /// </exception>
         public static SliderFloatPresenter AddSliderFloat(this Presenter parent, Slider view,
             float value = float.NaN)
         {
@@ -93,20 +70,18 @@ namespace OpenUGD.Presenters
         }
 
         /// <summary>
-        /// As <see cref="AddSliderFloat(Presenter, Slider, float)"/>, and subscribes
-        /// <paramref name="onChange"/> to <see cref="SliderFloatPresenter.ValueChanged"/> for the life of the
-        /// presenter.
+        /// As <see cref="AddSliderFloat(Presenter, Slider, float)"/>, and subscribes <paramref name="onChange"/> to
+        /// <see cref="SliderFloatPresenter.ValueChanged"/> for the life of the presenter.
         /// </summary>
-        /// <param name="parent">The presenter to attach to. It must be attached and alive.</param>
-        /// <param name="view">The slider. <c>null</c> attaches a presenter that renders when a view is set.
-        /// </param>
+        /// <param name="parent">An attached, live presenter.</param>
+        /// <param name="view">The slider, or <c>null</c> to render once a view is set.</param>
         /// <param name="value">The value to show, or <see cref="float.NaN"/> to leave the slider alone.</param>
         /// <param name="onChange">Receives every value the slider reports.</param>
         /// <returns>The attached presenter.</returns>
-        /// <exception cref="ArgumentNullException"><paramref name="onChange"/> is <c>null</c>. Nothing is
-        /// attached.</exception>
-        /// <exception cref="InvalidOperationException"><paramref name="parent"/> has not been attached, or has
-        /// closed.</exception>
+        /// <exception cref="ArgumentNullException"><paramref name="onChange"/> is <c>null</c>; nothing is attached.
+        /// </exception>
+        /// <exception cref="InvalidOperationException"><paramref name="parent"/> is not attached, or has closed.
+        /// </exception>
         public static SliderFloatPresenter AddSliderFloat(this Presenter parent, Slider view, float value,
             Action<float> onChange)
         {
@@ -120,17 +95,16 @@ namespace OpenUGD.Presenters
 
         /// <summary>
         /// As <see cref="AddSliderFloat(Presenter, Slider, float, Action{float})"/> with
-        /// <see cref="float.NaN"/>: reports changes and leaves the slider where the scene put it.
+        /// <see cref="float.NaN"/>: reports changes and leaves the slider where it is.
         /// </summary>
-        /// <param name="parent">The presenter to attach to. It must be attached and alive.</param>
-        /// <param name="view">The slider. <c>null</c> attaches a presenter that renders when a view is set.
-        /// </param>
+        /// <param name="parent">An attached, live presenter.</param>
+        /// <param name="view">The slider, or <c>null</c> to listen once a view is set.</param>
         /// <param name="onChange">Receives every value the slider reports.</param>
         /// <returns>The attached presenter.</returns>
-        /// <exception cref="ArgumentNullException"><paramref name="onChange"/> is <c>null</c>. Nothing is
-        /// attached.</exception>
-        /// <exception cref="InvalidOperationException"><paramref name="parent"/> has not been attached, or has
-        /// closed.</exception>
+        /// <exception cref="ArgumentNullException"><paramref name="onChange"/> is <c>null</c>; nothing is attached.
+        /// </exception>
+        /// <exception cref="InvalidOperationException"><paramref name="parent"/> is not attached, or has closed.
+        /// </exception>
         public static SliderFloatPresenter AddSliderFloat(this Presenter parent, Slider view,
             Action<float> onChange) => parent.AddSliderFloat(view, float.NaN, onChange);
     }

@@ -4,21 +4,19 @@ using UnityEngine.UI;
 namespace OpenUGD.Presenters
 {
     /// <summary>
-    /// The render state of a <see cref="SliderIntPresenter"/>: the range, the position inside it, and the
-    /// callback for changes the slider reports.
+    /// What a <see cref="SliderIntPresenter"/> renders: a whole-number range, a position in it, and a callback
+    /// for reported changes.
     /// </summary>
     /// <remarks>
-    /// Read-only, so it is a snapshot: push a new instance through <c>SetModel</c> to move the slider or to
-    /// change its range. The values are <c>long</c> but the slider stores <c>float</c>, so magnitudes past
-    /// 2^24 lose precision at the view.
+    /// Immutable; set a new instance to move the slider or change its range. The slider stores <c>float</c>, so
+    /// values beyond ±2^24 lose precision. Nothing is validated: the slider clamps <see cref="Value"/>.
     /// </remarks>
     public class SliderIntModel
     {
         /// <summary>
-        /// Invoked with the slider's new value — always a whole number, since the presenter turns on
-        /// <c>wholeNumbers</c> — whenever the slider reports a change: the user dragging, or code assigning
-        /// <c>Slider.value</c>; before any <see cref="SliderIntPresenter.ValueChanged"/> subscriber. Never invoked
-        /// by the presenter's own render. <c>null</c> means no callback.
+        /// Called with the slider's new value, a whole number, for every change it reports — a drag, or code
+        /// assigning <c>Slider.value</c> — before <see cref="SliderIntPresenter.ValueChanged"/>. Never called for
+        /// the presenter's own render. <c>null</c> for none.
         /// </summary>
         public Action<float> OnValueChanged { get; }
 
@@ -28,18 +26,16 @@ namespace OpenUGD.Presenters
         /// <summary>The high end of the range, written to <c>Slider.maxValue</c>.</summary>
         public long MaxValue { get; }
 
-        /// <summary>The position to show. The slider clamps it into the range.</summary>
+        /// <summary>The position to show.</summary>
         public long Value { get; }
 
         /// <summary>
-        /// Creates the state a <see cref="SliderIntPresenter"/> renders from.
+        /// Creates a slider model.
         /// </summary>
         /// <param name="minValue">The low end of the range.</param>
-        /// <param name="maxValue">The high end of the range. Not validated against
-        /// <paramref name="minValue"/>.</param>
-        /// <param name="value">The position to show. Not validated against the range; the slider clamps it.
-        /// </param>
-        /// <param name="onValueChanged">The callback for reported changes, or <c>null</c> for none.</param>
+        /// <param name="maxValue">The high end of the range.</param>
+        /// <param name="value">The position to show.</param>
+        /// <param name="onValueChanged">The callback for reported changes, or <c>null</c>.</param>
         public SliderIntModel(long minValue, long maxValue, long value, Action<float> onValueChanged = null)
         {
             MinValue = minValue;
@@ -50,27 +46,14 @@ namespace OpenUGD.Presenters
     }
 
     /// <summary>
-    /// Drives a <see cref="Slider"/> from a <see cref="SliderIntModel"/>: renders the range and the position
-    /// as whole numbers, and reports every change the slider makes to the model's callback and to the
-    /// <see cref="ValueChanged"/> signal.
+    /// Renders a <see cref="SliderIntModel"/> on a <see cref="Slider"/> in whole numbers and reports the slider's
+    /// changes to the model's callback and to <see cref="ValueChanged"/>.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>Whole numbers.</b> Every render sets <c>Slider.wholeNumbers</c>, then the range, then the value, so
-    /// the slider rounds what the user drags to.
-    /// </para>
-    /// <para>
-    /// <b>Rendering never echoes.</b> The value is written with <c>Slider.SetValueWithoutNotify</c>. Writing
-    /// <c>wholeNumbers</c> or the range can make the slider re-clamp its current value and raise
-    /// <c>onValueChanged</c>; the presenter ignores whatever is raised while it renders, so neither
-    /// <see cref="SliderIntModel.OnValueChanged"/> nor <see cref="ValueChanged"/> sees it. Other listeners on the
-    /// slider do.
-    /// </para>
-    /// <para>
-    /// A <c>null</c> model renders nothing — the slider keeps its range and value — and reported changes still
-    /// reach <see cref="ValueChanged"/>. <b>One listener per attached view</b>, scoped to its
-    /// <c>ViewLifetime</c>, so swapping or detaching the view moves or removes the listener.
-    /// </para>
+    /// A render sets <c>wholeNumbers</c>, the range, then the value with <c>SetValueWithoutNotify</c>. Writing
+    /// the range can make the slider re-clamp and notify; whatever it raises during a render reaches neither the
+    /// model's callback nor <see cref="ValueChanged"/> (other listeners on the slider do see it). A <c>null</c>
+    /// model leaves the slider as it is. One listener is added per attached view, on its <c>ViewLifetime</c>.
     /// </remarks>
     public class SliderIntPresenter : Presenter<Slider, SliderIntModel>
     {
@@ -78,18 +61,11 @@ namespace OpenUGD.Presenters
         private bool _rendering;
 
         /// <summary>
-        /// Fires with the slider's new value for every change the attached slider reports, after
-        /// <see cref="SliderIntModel.OnValueChanged"/>. Never fires for the presenter's own render.
+        /// Raised with the slider's value for every change it reports, after
+        /// <see cref="SliderIntModel.OnValueChanged"/>. Never raised for the presenter's own render.
         /// </summary>
         /// <remarks>
-        /// <para>
-        /// Created on first read and scoped to <see cref="Presenter.Lifetime"/>: every subscription ends at
-        /// the earlier of the subscriber's lifetime and this presenter closing.
-        /// </para>
-        /// <para>
-        /// <i>New in 2.0.0</i>, so that every input presenter reports its changes through a signal, as
-        /// <see cref="SliderFloatPresenter.ValueChanged"/> does (audit WG-8).
-        /// </para>
+        /// Created on first read and scoped to <see cref="Presenter.Lifetime"/>.
         /// </remarks>
         /// <exception cref="InvalidOperationException">Read before the presenter is attached.</exception>
         public ISignal<float> ValueChanged => _valueChanged ??= new Signal<float>(Lifetime);
@@ -100,8 +76,7 @@ namespace OpenUGD.Presenters
         protected override void OnViewAdded() => View.onValueChanged.Subscribe(ViewLifetime, OnValueChanged);
 
         /// <summary>
-        /// Writes <c>wholeNumbers</c>, the range and the value to the slider. Does nothing for a <c>null</c>
-        /// model. Idempotent.
+        /// Writes <c>wholeNumbers</c>, the range and the value. Does nothing for a <c>null</c> model.
         /// </summary>
         protected override void OnRefresh()
         {
@@ -130,23 +105,20 @@ namespace OpenUGD.Presenters
     }
 
     /// <summary>
-    /// One-call construction of a <see cref="SliderIntPresenter"/>. To change the range or the position
-    /// later, call <c>SetModel</c> on the presenter it returns.
+    /// Creates <see cref="SliderIntPresenter"/>s.
     /// </summary>
     public static class SliderIntPresenterExtensions
     {
         /// <summary>
-        /// Creates a <see cref="SliderIntPresenter"/> under <paramref name="parent"/>, sets its model to
-        /// <paramref name="model"/> and then its view to <paramref name="view"/>, which renders it once.
+        /// Attaches a <see cref="SliderIntPresenter"/> under <paramref name="parent"/>, then sets its model and its
+        /// view.
         /// </summary>
-        /// <param name="parent">The presenter to attach to. It must be attached and alive; the new presenter
-        /// closes no later than it does.</param>
-        /// <param name="view">The slider. <c>null</c> attaches a presenter that renders when a view is set.
-        /// </param>
-        /// <param name="model">The range and position to show. <c>null</c> leaves the slider as it is.</param>
+        /// <param name="parent">An attached, live presenter. The new presenter closes no later than it does.</param>
+        /// <param name="view">The slider, or <c>null</c> to render once a view is set.</param>
+        /// <param name="model">The range and position, or <c>null</c> to leave the slider as it is.</param>
         /// <returns>The attached presenter.</returns>
-        /// <exception cref="InvalidOperationException"><paramref name="parent"/> has not been attached, or has
-        /// closed.</exception>
+        /// <exception cref="InvalidOperationException"><paramref name="parent"/> is not attached, or has closed.
+        /// </exception>
         public static SliderIntPresenter AddSliderInt(this Presenter parent, Slider view, SliderIntModel model)
         {
             var presenter = parent.AddPresenter(new SliderIntPresenter());

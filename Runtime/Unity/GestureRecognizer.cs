@@ -3,20 +3,16 @@ using UnityEngine;
 
 namespace OpenUGD.UI
 {
-    // The gesture rules of UIGestureDetector: pointer positions in, at most one gesture out per call. It makes no
-    // engine call (Vector2 is plain C#, and the caller passes the threshold in pixels), so level 1 tests every
-    // rule without Unity. One pointer at a time: a press restarts whatever gesture was in progress and makes its
-    // pointer the one followed, so moves and releases of any other pointer (a finger that was already down) are
-    // ignored instead of being measured against the new press.
+    // The gesture rules of UIGestureDetector: pointer positions in, at most one gesture out per call. No engine
+    // calls (the caller passes the threshold in pixels), so level 1 tests every rule. One pointer at a time: a press
+    // restarts the gesture and makes its pointer the one followed; moves and releases of other pointers are ignored.
     //
-    // The rules, in screen pixels with y counting upwards as PointerEventData.position does:
-    // - a swipe is a movement whose dominant axis exceeds the threshold; its direction is the direction of travel,
-    //   so Up is towards the top of the screen (audit WG-9: Up and Down used to be swapped);
-    // - at most one swipe per press, and a press that swiped is never also a tap (WG-9);
+    // In screen pixels, y up as in PointerEventData.position:
+    // - a swipe is a movement whose dominant axis exceeds the threshold, in the direction of travel;
+    // - at most one swipe per press, and a press that swiped is never also a tap;
     // - live, a swipe fires on the first move past the threshold; with swipeOnRelease it is judged once, from the
-    //   release position (WG-9: that mode used to disable swipes altogether); in both, a release past the
-    //   threshold that no move reported is still a swipe;
-    // - a tap is a release within the threshold of the press, by a pointer that never strayed further than that.
+    //   release position; either way a release past the threshold that no move reported is a swipe;
+    // - a tap is a release within the threshold of the press, by a pointer that never strayed further.
     internal sealed class GestureRecognizer
     {
         private Vector2 _origin;

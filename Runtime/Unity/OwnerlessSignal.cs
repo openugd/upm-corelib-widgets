@@ -4,20 +4,17 @@ using System.Runtime.ExceptionServices;
 
 namespace OpenUGD.UI
 {
-    // An ISignal with no Lifetime of its own, for a component that cannot own one (audit WG-10).
+    // An ISignal with no Lifetime of its own, behind UIGestureDetector's signals, which must take subscriptions
+    // before the detector is first active. A Signal needs an owning Lifetime: one created before Awake would be
+    // ended only by an OnDestroy that Unity never sends to an object that was never active, and corelib's
+    // GetLifetime/LifetimeBehaviour refuse such an object for that reason. Here each registration is held by this
+    // object and ended by the subscriber's lifetime, so nothing roots a never-activated detector. Close() is the
+    // owner's OnDestroy: it drops every handler and refuses new ones.
     //
-    // Signal needs an owning Lifetime, and every Lifetime is nested, directly or not, in Lifetime.Eternal. A
-    // component ends its scope in OnDestroy, but Unity never sends OnDestroy to an object that was never active, so
-    // a scope created for such an object - by a field initializer or a lazy getter - stays on Eternal for the rest
-    // of the process. Here a registration is held by this object and ended by the subscriber's lifetime; nothing
-    // is rooted anywhere else, so a detector that is never activated is collected with its subscribers. Close() is
-    // the owner's OnDestroy: it drops every handler and refuses new ones.
-    //
-    // Otherwise the semantics of Signal: handlers run in subscription order; a dispatch works on the registrations
-    // present when it starts and skips any that end during it; the same handler may be subscribed twice; a handler
-    // that throws does not stop the others, and the failures are reported at the end, one as itself and two or
-    // more as an AggregateException. Dispatch is meant for Unity's main thread; subscribing and ending a
-    // registration are safe from any thread.
+    // Otherwise Signal's semantics: subscription order; a dispatch skips registrations that end during it; duplicate
+    // handlers allowed; a throwing handler does not stop the others, and failures are rethrown at the end, one as
+    // itself, two or more as an AggregateException. Fire on the main thread; Subscribe and the end of a registration
+    // from any thread.
     internal sealed class OwnerlessSignal : ISignal
     {
         private readonly object _lock = new object();

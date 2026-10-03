@@ -37,6 +37,21 @@
   },
   "samples": [
     {
+      "displayName": "Settings Screen",
+      "description": "A settings screen built in code and bound with the presenters: button, toggle, float and whole-number sliders, labels with format arguments, a TextMeshPro input field and an image, translated by a stub ILocalization with a language switch that re-renders every label through ILocalizationChanged. Add the Settings Screen component to an empty GameObject and enter Play mode.",
+      "path": "Samples~/SettingsScreen"
+    },
+    {
+      "displayName": "Recycled List",
+      "description": "A scrolling list of 500 items with one presenter per item and only as many row views as fit on screen. Scrolling moves a row view between presenters with SetView, and the row's button and toggle listeners follow the view to the item it now shows. Add the Recycled List component to an empty GameObject and enter Play mode.",
+      "path": "Samples~/RecycledList"
+    },
+    {
+      "displayName": "Gestures and Links",
+      "description": "UIGestureDetector and HyperlinkText with their presenters, built in code: taps and four-way swipes on an area, a detector subscribed to before its GameObject was ever active, and TextMeshPro links where a LinkClicked handler takes in-game links and refuses insecure ones. Add the Gestures and Links component to an empty GameObject and enter Play mode.",
+      "path": "Samples~/GesturesAndLinks"
+    },
+    {
       "displayName": "Keyboard Shortcuts",
       "description": "The replacement for AddKeyboard, removed in 2.0.0: a short helper you copy into your project that calls back when a key goes down for as long as a presenter is open, and never after it closes. It reads the Input System when it is enabled and installed, otherwise the Input Manager, and otherwise does nothing.",
       "path": "Samples~/KeyboardShortcuts"

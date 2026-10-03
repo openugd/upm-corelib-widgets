@@ -1,0 +1,30 @@
+{
+    "name": "com.openugd.corelib.widgets.samples.gesturesandlinks",
+    "rootNamespace": "OpenUGD.Samples.GesturesAndLinks",
+    "references": [
+        "com.openugd.corelib.widgets",
+        "com.openugd.presenters",
+        "com.openugd.corelib",
+        "com.openugd.context",
+        "com.openugd.lifetime",
+        "com.openugd.signal",
+        "UnityEngine.UI",
+        "Unity.TextMeshPro",
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.inputsystem",
+            "expression": "1.0.0",
+            "define": "OPENUGD_INPUT_SYSTEM_PACKAGE"
+        }
+    ],
+    "noEngineReferences": false
+}

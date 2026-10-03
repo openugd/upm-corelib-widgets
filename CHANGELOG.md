@@ -25,10 +25,13 @@ Almost everything below is breaking. Each breaking entry ends with the change to
 
 ### Added
 
-- **`ButtonPresenter.Clicked`, `TogglePresenter.Toggled`, `InputFieldPresenter.ValueChanged` and
-  `SliderFloatPresenter.ValueChanged`**: subscribe-only `ISignal` properties, created on first read and
-  scoped to the presenter's `Lifetime`. Reading one before the presenter is attached throws
-  `InvalidOperationException`. They replace the hand-written subscribe methods (see *Removed*).
+- **`ButtonPresenter.Clicked`, `TogglePresenter.Toggled`, `InputFieldPresenter.ValueChanged`,
+  `SliderFloatPresenter.ValueChanged` and `SliderIntPresenter.ValueChanged`**: subscribe-only `ISignal`
+  properties, created on first read and scoped to the presenter's `Lifetime`. Reading one before the
+  presenter is attached throws `InvalidOperationException`. They replace the hand-written subscribe methods
+  (see *Removed*), and with `SliderIntPresenter`'s, which had only its model's callback, every input
+  presenter reports its changes through a signal (audit WG-8). Where the model also carries a callback
+  (`ButtonPresenter`, `ToggleModel`, `SliderIntModel`), the callback runs first.
 - **`TextModel.Resolve(ILocalization)`**: the one rule `TextPresenter`, `TMPPresenter` and
   `HyperlinkTextPresenter` render by. It is public so a presenter of your own can render text the same way.
 - **`HyperlinkText.LinkClicked`, `HyperlinkText.OpenUrls` and `HyperlinkClick`** (audit WG-11): a click on a

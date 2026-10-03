@@ -63,13 +63,17 @@ namespace OpenUGD.Widgets.Tests
             toggle.isOn = true;
             slider.value = 0.5f;
             var toggled = 0;
+            var slid = 0;
 
             Root.AddToggle(toggle, null).Toggled.Subscribe(TestLifetime, _ => toggled++);
-            Root.AddSliderInt(slider, null);
-            toggle.isOn = false;
-
+            Root.AddSliderInt(slider, null).ValueChanged.Subscribe(TestLifetime, _ => slid++);
             Assert.AreEqual(0.5f, slider.value);
+
+            toggle.isOn = false;
+            slider.value = 0.75f;
+
             Assert.AreEqual(1, toggled);
+            Assert.AreEqual(1, slid);
         }
 
         // --- WG-8: rendering never echoes as a change ------------------------------------------------------
@@ -121,16 +125,17 @@ namespace OpenUGD.Widgets.Tests
         public void SliderIntPresenter_ARangeChangeThatReclampsIsNotReported()
         {
             var view = NewView<Slider>();
-            var values = new List<float>();
-            var presenter = Root.AddSliderInt(view, new SliderIntModel(0, 10, 9, values.Add));
+            var values = new List<string>();
+            var presenter = Root.AddSliderInt(view, new SliderIntModel(0, 10, 9, v => values.Add("model " + v)));
+            presenter.ValueChanged.Subscribe(TestLifetime, v => values.Add("signal " + v));
 
             // Narrowing the range makes Slider re-clamp 9 -> 5 and raise onValueChanged from the maxValue setter.
-            presenter.SetModel(new SliderIntModel(0, 5, 9, values.Add));
+            presenter.SetModel(new SliderIntModel(0, 5, 9, v => values.Add("model " + v)));
             Assert.AreEqual(5f, view.value);
             Assert.AreEqual(0, values.Count, "rendering reports nothing");
 
             view.value = 3.4f;
-            CollectionAssert.AreEqual(new[] { 3f }, values, "whole numbers");
+            CollectionAssert.AreEqual(new[] { "model 3", "signal 3" }, values, "whole numbers, model then signal");
         }
 
         [Test]

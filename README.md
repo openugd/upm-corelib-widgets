@@ -119,10 +119,11 @@ public class SettingsScreen : ViewBehaviour
 - **Listeners follow the view.** Each presenter adds one listener per attached view, on that view's
   `ViewLifetime`. Replacing the view moves the listener, detaching removes it, and re-attaching adds it
   exactly once.
-- **Events are signals.** `ButtonPresenter.Clicked`, `TogglePresenter.Toggled`,
-  `InputFieldPresenter.ValueChanged` and `SliderFloatPresenter.ValueChanged` are subscribe-only `ISignal`
-  properties. Each is created on first read and scoped to the presenter's `Lifetime`. Reading one before
-  the presenter is attached throws `InvalidOperationException`.
+- **Events are signals.** Every input presenter reports its changes through a subscribe-only `ISignal`
+  property: `ButtonPresenter.Clicked`, `TogglePresenter.Toggled`, `InputFieldPresenter.ValueChanged`,
+  `SliderFloatPresenter.ValueChanged` and `SliderIntPresenter.ValueChanged`. Each is created on first read
+  and scoped to the presenter's `Lifetime`. Reading one before the presenter is attached throws
+  `InvalidOperationException`. A callback carried by the model runs before the signal.
 - **A `null` model is safe.** Rendering and event handling check for it. A toggle or int slider with no
   model is left as it is, a text renders empty, an input field empties, a raw image is disabled.
 
@@ -133,7 +134,7 @@ public class SettingsScreen : ViewBehaviour
 | `ButtonPresenter` | `Button` | `Action` | `parent.AddButton(view, listener)` | the model, then `Clicked` |
 | `TogglePresenter` | `Toggle` | `ToggleModel` | `parent.AddToggle(view, model)` | `ToggleModel.OnChanged`, then `Toggled` |
 | `SliderFloatPresenter` | `Slider` | `float` (NaN leaves the slider alone) | `parent.AddSliderFloat(view, value[, onChange])` | `ValueChanged` |
-| `SliderIntPresenter` | `Slider` | `SliderIntModel` | `parent.AddSliderInt(view, model)` | `SliderIntModel.OnValueChanged` |
+| `SliderIntPresenter` | `Slider` | `SliderIntModel` | `parent.AddSliderInt(view, model)` | `SliderIntModel.OnValueChanged`, then `ValueChanged` |
 | `InputFieldPresenter` | `TMP_InputField` | `string` | `parent.AddInputField(view, value[, maxLength])` | `ValueChanged` |
 | `TextPresenter` | `Text` | `TextModel` | `parent.AddText(view, text)` or `(view, format, args…)` | — |
 | `TMPPresenter` | `TMP_Text` | `TextModel` | `parent.AddText(view, text)` or `(view, format, args…)` | — |

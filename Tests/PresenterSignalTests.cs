@@ -16,6 +16,7 @@ namespace OpenUGD.Widgets.Tests
             Assert.Throws<InvalidOperationException>(() => { var _ = new TogglePresenter().Toggled; });
             Assert.Throws<InvalidOperationException>(() => { var _ = new InputFieldPresenter().ValueChanged; });
             Assert.Throws<InvalidOperationException>(() => { var _ = new SliderFloatPresenter().ValueChanged; });
+            Assert.Throws<InvalidOperationException>(() => { var _ = new SliderIntPresenter().ValueChanged; });
         }
 
         [Test]
@@ -25,11 +26,13 @@ namespace OpenUGD.Widgets.Tests
             var toggle = Root.AddToggle(null, null);
             var input = Root.AddInputField(null, null);
             var slider = Root.AddSliderFloat(null);
+            var sliderInt = Root.AddSliderInt(null, null);
 
             Assert.AreSame(button.Clicked, button.Clicked);
             Assert.AreSame(toggle.Toggled, toggle.Toggled);
             Assert.AreSame(input.ValueChanged, input.ValueChanged);
             Assert.AreSame(slider.ValueChanged, slider.ValueChanged);
+            Assert.AreSame(sliderInt.ValueChanged, sliderInt.ValueChanged);
         }
 
         [Test]
@@ -44,6 +47,9 @@ namespace OpenUGD.Widgets.Tests
                 typeof(InputFieldPresenter).GetProperty("ValueChanged").PropertyType);
             Assert.AreEqual(typeof(ISignal<float>),
                 typeof(SliderFloatPresenter).GetProperty("ValueChanged").PropertyType);
+            Assert.AreEqual(typeof(ISignal<float>),
+                typeof(SliderIntPresenter).GetProperty("ValueChanged").PropertyType,
+                "WG-8: every input presenter reports its changes through a signal");
             Assert.IsNotNull(button.Clicked);
         }
 

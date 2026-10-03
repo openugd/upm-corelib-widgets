@@ -17,7 +17,8 @@ namespace OpenUGD.Presenters
         /// <summary>
         /// Invoked with the slider's new value — always a whole number, since the presenter turns on
         /// <c>wholeNumbers</c> — whenever the slider reports a change: the user dragging, or code assigning
-        /// <c>Slider.value</c>. Never invoked by the presenter's own render. <c>null</c> means no callback.
+        /// <c>Slider.value</c>; before any <see cref="SliderIntPresenter.ValueChanged"/> subscriber. Never invoked
+        /// by the presenter's own render. <c>null</c> means no callback.
         /// </summary>
         public Action<float> OnValueChanged { get; }
 
@@ -50,7 +51,8 @@ namespace OpenUGD.Presenters
 
     /// <summary>
     /// Drives a <see cref="Slider"/> from a <see cref="SliderIntModel"/>: renders the range and the position
-    /// as whole numbers, and forwards every change the slider reports to the model's callback.
+    /// as whole numbers, and reports every change the slider makes to the model's callback and to the
+    /// <see cref="ValueChanged"/> signal.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -60,17 +62,37 @@ namespace OpenUGD.Presenters
     /// <para>
     /// <b>Rendering never echoes.</b> The value is written with <c>Slider.SetValueWithoutNotify</c>. Writing
     /// <c>wholeNumbers</c> or the range can make the slider re-clamp its current value and raise
-    /// <c>onValueChanged</c>; the presenter ignores whatever is raised while it renders, so
-    /// <see cref="SliderIntModel.OnValueChanged"/> never sees it. Other listeners on the slider do.
+    /// <c>onValueChanged</c>; the presenter ignores whatever is raised while it renders, so neither
+    /// <see cref="SliderIntModel.OnValueChanged"/> nor <see cref="ValueChanged"/> sees it. Other listeners on the
+    /// slider do.
     /// </para>
     /// <para>
-    /// A <c>null</c> model renders nothing. <b>One listener per attached view</b>, scoped to its
+    /// A <c>null</c> model renders nothing — the slider keeps its range and value — and reported changes still
+    /// reach <see cref="ValueChanged"/>. <b>One listener per attached view</b>, scoped to its
     /// <c>ViewLifetime</c>, so swapping or detaching the view moves or removes the listener.
     /// </para>
     /// </remarks>
     public class SliderIntPresenter : Presenter<Slider, SliderIntModel>
     {
+        private Signal<float> _valueChanged;
         private bool _rendering;
+
+        /// <summary>
+        /// Fires with the slider's new value for every change the attached slider reports, after
+        /// <see cref="SliderIntModel.OnValueChanged"/>. Never fires for the presenter's own render.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Created on first read and scoped to <see cref="Presenter.Lifetime"/>: every subscription ends at
+        /// the earlier of the subscriber's lifetime and this presenter closing.
+        /// </para>
+        /// <para>
+        /// <i>New in 2.0.0</i>, so that every input presenter reports its changes through a signal, as
+        /// <see cref="SliderFloatPresenter.ValueChanged"/> does (audit WG-8).
+        /// </para>
+        /// </remarks>
+        /// <exception cref="InvalidOperationException">Read before the presenter is attached.</exception>
+        public ISignal<float> ValueChanged => _valueChanged ??= new Signal<float>(Lifetime);
 
         /// <summary>
         /// Adds the change listener to the attached slider, scoped to its <c>ViewLifetime</c>.
@@ -103,6 +125,7 @@ namespace OpenUGD.Presenters
         {
             if (_rendering) return;
             Model?.OnValueChanged?.Invoke(value);
+            _valueChanged?.Fire(value);
         }
     }
 

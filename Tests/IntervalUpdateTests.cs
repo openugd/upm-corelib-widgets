@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Runtime.Serialization;
 using NUnit.Framework;
 using OpenUGD.Presenters;
 using OpenUGD.Utils;
@@ -74,31 +75,99 @@ namespace OpenUGD.Widgets.Tests
         }
 
         [Test]
+        public void OnAClosedPresenter_NothingStarts()
+        {
+            var runner = new SteppingRunner();
+            var label = Root.AddText((TMPro.TMP_Text)null, "initial");
+            var calls = 0;
+            label.Close();
+
+            label.WithIntervalUpdate(runner, _ => {
+                calls++;
+                return "tick";
+            });
+
+            Assert.AreEqual(0, runner.Started);
+            Assert.AreEqual(0, calls);
+            Assert.AreEqual("initial", (string)label.Model);
+        }
+
+        [Test]
+        public void ACallbackThatThrowsOnTheFirstUpdate_LeavesThePresenterSafeToClose()
+        {
+            // Unity logs an exception from a coroutine instead of rethrowing it, and hands back null for a
+            // coroutine that already ended inside StartCoroutine. Closing must not then call StopCoroutine(null).
+            var runner = new SteppingRunner();
+            var label = Root.AddText((TMPro.TMP_Text)null, "");
+
+            Func<IDisposable, string> failing = _ => throw new InvalidOperationException("first update");
+
+            label.WithIntervalUpdate(runner, failing);
+
+            Assert.IsInstanceOf<InvalidOperationException>(runner.Logged);
+            Assert.DoesNotThrow(() => label.Close());
+            Assert.AreEqual(0, runner.Stopped);
+        }
+
+        [Test]
+        public void ACoroutineThatCannotStart_EndsTheTimer_BeforeTheExceptionPropagates()
+        {
+            var runner = new SteppingRunner { RefuseToStart = new InvalidOperationException("inactive host") };
+            var label = Root.AddText((TMPro.TMP_Text)null, "");
+            var calls = 0;
+
+            Assert.Throws<InvalidOperationException>(() => label.WithIntervalUpdate(runner, _ => {
+                calls++;
+                return "tick";
+            }));
+
+            // Had the provider kept the coroutine after all, it would find its timer already over.
+            Assert.IsFalse(runner.Refused.MoveNext());
+            Assert.AreEqual(0, calls);
+        }
+
+        [Test]
         public void BeforeAttach_ItThrows()
         {
             Assert.Throws<InvalidOperationException>(() =>
                 new TMPPresenter().WithIntervalUpdate(new SteppingRunner(), _ => ""));
         }
 
-        // Runs a coroutine's first step inside StartCoroutine, as Unity does, then one step per Step() call.
-        // Unity's Coroutine has no public constructor, so it hands back null: the extension only passes it on.
+        // Behaves as Unity does where the extension can tell: runs the coroutine's first step inside
+        // StartCoroutine, logs (here: records) an exception from a step instead of rethrowing it, returns null for
+        // a coroutine that ended inside StartCoroutine, and rejects StopCoroutine(null) like CoroutineProvider.
+        // Unity's Coroutine has no public constructor, so a running coroutine is handed back as an uninitialised
+        // instance whose finalizer (a native call) is suppressed; the extension only passes it back.
         private sealed class SteppingRunner : ICoroutineProvider
         {
             private IEnumerator _running;
 
             public int Started;
             public int Stopped;
+            public Exception Logged;
+            public Exception RefuseToStart;
+            public IEnumerator Refused;
 
             public Coroutine StartCoroutine(IEnumerator enumerator)
             {
+                if (RefuseToStart != null)
+                {
+                    Refused = enumerator;
+                    throw RefuseToStart;
+                }
+
                 Started++;
                 _running = enumerator;
-                Step();
-                return null;
+                if (!Step()) return null;
+
+                var running = (Coroutine)FormatterServices.GetUninitializedObject(typeof(Coroutine));
+                GC.SuppressFinalize(running);
+                return running;
             }
 
             public void StopCoroutine(Coroutine coroutine)
             {
+                if (coroutine == null) throw new ArgumentNullException(nameof(coroutine));
                 Stopped++;
                 _running = null;
             }
@@ -106,7 +175,15 @@ namespace OpenUGD.Widgets.Tests
             public bool Step()
             {
                 if (_running == null) return false;
-                if (_running.MoveNext()) return true;
+                try
+                {
+                    if (_running.MoveNext()) return true;
+                }
+                catch (Exception e)
+                {
+                    Logged = e;
+                }
+
                 _running = null;
                 return false;
             }

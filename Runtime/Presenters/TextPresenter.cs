@@ -68,9 +68,9 @@ namespace OpenUGD.Presenters
         /// <see cref="TextModel.Resolve"/>.
         /// </summary>
         /// <remarks>
-        /// The array is stored on the model, not copied, and is read again on every render. Calling this
-        /// with no arguments still passes an empty array, so <paramref name="format"/> goes through
-        /// <c>string.Format</c>.
+        /// The array is stored on the model, not copied, and is read again on every render. A call with no
+        /// arguments binds to the overload without them, which never formats: pass an empty array explicitly
+        /// to run <paramref name="format"/> through <c>string.Format</c> with none.
         /// </remarks>
         /// <param name="parent">The presenter to attach to. It must be attached and alive.</param>
         /// <param name="view">The label. <c>null</c> attaches a presenter that renders when a view is set.

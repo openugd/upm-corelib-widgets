@@ -15,7 +15,8 @@ namespace OpenUGD
     /// A <see cref="UnityEvent"/> usually outlives the object listening to it, and a listener that is never
     /// removed keeps its delegate, and everything the delegate captured, alive for as long as the event's
     /// owner. Subscribing through a scope makes the matching <c>RemoveListener</c> impossible to forget.
-    /// Every presenter in this package wires its view this way, on its <c>ViewLifetime</c>.
+    /// The button, toggle, slider and input field presenters in this package wire their views this way, on
+    /// their <c>ViewLifetime</c>.
     /// </para>
     /// <para>
     /// The removal targets the event instance passed in, not whatever a property returns later, so it stays

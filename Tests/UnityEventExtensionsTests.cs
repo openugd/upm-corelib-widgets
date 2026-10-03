@@ -1,11 +1,12 @@
 using System;
 using NUnit.Framework;
 using UnityEngine.Events;
+using UnityEngine.UI;
 
 namespace OpenUGD.Widgets.Tests
 {
-    // The helper every presenter in the package wires its view with. UnityEvent is managed code, so these run
-    // without the engine.
+    // The helper every presenter in the package wires its view with, and ButtonExtensions on top of it.
+    // UnityEvent is managed code, so these run without the engine.
     [TestFixture]
     public class UnityEventExtensionsTests
     {
@@ -97,6 +98,12 @@ namespace OpenUGD.Widgets.Tests
             Assert.Throws<ArgumentNullException>(() => unityEvent.Subscribe(null, () => { }));
             Assert.Throws<ArgumentNullException>(() => unityEvent.Subscribe(_scope.Lifetime, null));
             Assert.Throws<ArgumentNullException>(() => new UnityEvent<int>().Subscribe(_scope.Lifetime, null));
+        }
+
+        [Test]
+        public void ButtonExtensions_RejectsANullButton()
+        {
+            Assert.Throws<ArgumentNullException>(() => ((Button)null).SubscribeOnClick(_scope.Lifetime, () => { }));
         }
     }
 }

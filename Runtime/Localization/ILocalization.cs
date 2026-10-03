@@ -2,7 +2,7 @@ namespace OpenUGD.Presenters
 {
     /// <summary>
     /// Turns a key into the text to display. An <b>optional</b> service: the text presenters take it with
-    /// <c>[Inject(Optional = true)]</c> and render the model's text verbatim when nothing is registered.
+    /// <c>[Inject(Optional = true)]</c> and render the model's text untranslated when nothing is registered.
     /// </summary>
     /// <remarks>
     /// <para>

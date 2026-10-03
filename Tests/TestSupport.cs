@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using NUnit.Framework;
 using OpenUGD.Presenters;
 
@@ -48,6 +49,29 @@ namespace OpenUGD.Widgets.Tests
     {
         public LanguageChanged(Lifetime lifetime) : base(lifetime)
         {
+        }
+    }
+
+    internal static class Contexts
+    {
+        // Builds a real OpenUGD.Context on the test thread. BuildAsync completes on the thread pool when there is
+        // no synchronization context, so blocking on it cannot deadlock.
+        public static Context Build(Lifetime lifetime, Action<ContextBuilder> register)
+        {
+            var previous = SynchronizationContext.Current;
+            SynchronizationContext.SetSynchronizationContext(null);
+            try
+            {
+                var builder = Context.CreateBuilder(lifetime);
+                register(builder);
+                var task = builder.BuildAsync();
+                if (!task.Wait(15000)) Assert.Fail("the context did not build within 15 s");
+                return task.GetAwaiter().GetResult();
+            }
+            finally
+            {
+                SynchronizationContext.SetSynchronizationContext(previous);
+            }
         }
     }
 }

@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 using NUnit.Framework;
 using OpenUGD.Presenters;
 using OpenUGD.UI;
@@ -302,11 +300,9 @@ namespace OpenUGD.Widgets.Tests
             {
                 var localization = new PrefixLocalization();
                 var changed = new LanguageChanged(definition.Lifetime);
-                var context = RunSync(() => {
-                    var builder = Context.CreateBuilder(definition.Lifetime);
+                var context = Contexts.Build(definition.Lifetime, builder => {
                     builder.Services.AddInstance<ILocalization>(localization);
                     builder.Services.AddInstance<ILocalizationChanged>(changed);
-                    return builder.BuildAsync();
                 });
                 var root = new Presenter.Root(definition.Lifetime, new ContextPresenterFactory(context));
                 var view = NewView<Text>();
@@ -330,22 +326,6 @@ namespace OpenUGD.Widgets.Tests
             go.SetActive(false);
             _objects.Add(go);
             return go.AddComponent<T>();
-        }
-
-        private static T RunSync<T>(Func<Task<T>> start)
-        {
-            var previous = SynchronizationContext.Current;
-            SynchronizationContext.SetSynchronizationContext(null);
-            try
-            {
-                var task = start();
-                if (!task.Wait(15000)) Assert.Fail("the context did not build within 15 s");
-                return task.GetAwaiter().GetResult();
-            }
-            finally
-            {
-                SynchronizationContext.SetSynchronizationContext(previous);
-            }
         }
     }
 }

@@ -88,10 +88,14 @@ Almost everything below is breaking. Each breaking entry ends with the change to
   and an empty translation is no longer replaced by the key. Migration: a `string` still converts to a
   `TextModel`; give a translation of the format its own `<link>` tags and placeholders.
 - **Breaking: `TMPPresenterIntervalUpdateExtensions.WithIntervalUpdate` takes the `ICoroutineProvider` as
-  its second parameter** instead of resolving it from the removed `Presenter.Context`. Arguments are
-  validated before anything starts, and a coroutine that cannot be started no longer leaves the timer's
-  scope behind. Migration: inject an `ICoroutineProvider` into the calling presenter and write
-  `label.WithIntervalUpdate(_coroutines, text)`.
+  its second parameter** instead of resolving it from the removed `Presenter.Context`, and its first
+  parameter is named `presenter` instead of `parent`. Arguments are validated before anything starts, a
+  coroutine that cannot be started no longer leaves the timer's scope behind, and on a presenter that has
+  already closed nothing is started. Migration: inject an `ICoroutineProvider` into the calling presenter
+  and write `label.WithIntervalUpdate(_coroutines, text)`.
+- **Breaking: the `AddSliderFloat(…, onChange)` overloads reject a `null` handler** with
+  `ArgumentNullException` before attaching anything. They subscribe `onChange` to
+  `SliderFloatPresenter.ValueChanged`. Migration: pass a handler, or call the overload without one.
 - **Every `Add…` helper attaches, then sets the model, then sets the view** (audit P0-5, WG-18), so a
   presenter renders once with both in place. Before, most set the view first and rendered an empty model.
 - **Rendering never reports a change** (audit WG-8). `TogglePresenter`, `SliderFloatPresenter`,
@@ -112,9 +116,11 @@ Almost everything below is breaking. Each breaking entry ends with the change to
   `HyperlinkTextPresenter` rather than resolved on every render. With no `ILocalization` registered the
   model renders untranslated, and the build does not fail — a project without localization is a perfectly
   good project.
-- **`ILocalizationChanged` is an `ISignal`** (decision 8) and declares no member of its own. The method it
-  declared had the same signature as `ISignal.Subscribe`, so callers and implementations compile unchanged;
-  a `Signal` that declares the interface is now a complete implementation.
+- **Breaking for explicit implementations: `ILocalizationChanged` is an `ISignal`** (decision 8) and declares
+  no member of its own. The method it declared had the same signature as `ISignal.Subscribe`, so callers and
+  implicit implementations compile unchanged, and a `Signal` that declares the interface is now a complete
+  implementation. Migration: an explicit implementation renames `void ILocalizationChanged.Subscribe(…)` to
+  `void ISignal.Subscribe(…)`.
 - **No dependency on `com.unity.textmeshpro`** (decision 5). On Unity 6, TextMeshPro ships inside
   `com.unity.ugui` 2.x as the `Unity.TextMeshPro` assembly, and `com.unity.textmeshpro` is a deprecated
   5.0.0 shim. The package depends on `com.unity.ugui` 2.0.0, and the TMP presenters stay in its one runtime

@@ -10,8 +10,9 @@ namespace OpenUGD.Presenters
     /// <remarks>
     /// <para>
     /// <b>Order.</b> A click invokes the model first, then the <see cref="Clicked"/> subscribers in
-    /// subscription order. An exception from the model propagates out of Unity's click callback before the
-    /// signal fires. Use the model for the one obvious response and the signal for everything else.
+    /// subscription order. An exception from the model propagates out of Unity's click callback, and the
+    /// signal does not fire for that click. Use the model for the one obvious response and the signal for
+    /// everything else.
     /// </para>
     /// <para>
     /// <b>Nothing renders.</b> The model is a callback, not state: <c>SetModel</c> changes what the next click

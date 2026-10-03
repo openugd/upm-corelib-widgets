@@ -103,7 +103,14 @@ namespace OpenUGD.Presenters
         /// <para>
         /// Disposing the scope from inside the callback still renders that call's result; the loop does not
         /// run again. Calling this twice on one presenter runs two timers that both set its model. If the
-        /// coroutine cannot be started, the timer's scope is ended before the exception propagates.
+        /// coroutine cannot be started, the timer's scope is ended before the exception propagates. On a
+        /// presenter that has already closed this does nothing: no coroutine is started and the callback is
+        /// never called.
+        /// </para>
+        /// <para>
+        /// An exception from the callback ends the timer's coroutine. Unity logs it instead of passing it to
+        /// the caller, even on the first update; the timer's scope then stays until the presenter closes, and
+        /// closing it is still safe.
         /// </para>
         /// </remarks>
         /// <param name="presenter">The presenter to drive. It must be attached and alive.</param>
@@ -128,7 +135,10 @@ namespace OpenUGD.Presenters
             if (text == null)
                 throw new ArgumentNullException(nameof(text), $"{nameof(text)} can't be null");
 
+            // On a closed presenter the scope is born terminated: there is nothing to drive.
             var timer = presenter.Lifetime.DefineNested();
+            if (timer.IsTerminated) return presenter;
+
             Coroutine coroutine;
             try
             {
@@ -140,7 +150,14 @@ namespace OpenUGD.Presenters
                 throw;
             }
 
-            timer.Lifetime.AddAction(() => coroutines.StopCoroutine(coroutine));
+            // Unity hands back null for a coroutine that already ended inside StartCoroutine - here, one whose
+            // first callback threw, which Unity logs instead of rethrowing. There is nothing left to stop, and
+            // StopCoroutine(null) throws, which would make closing the presenter fail.
+            if (coroutine != null)
+            {
+                timer.Lifetime.AddAction(() => coroutines.StopCoroutine(coroutine));
+            }
+
             return presenter;
         }
 

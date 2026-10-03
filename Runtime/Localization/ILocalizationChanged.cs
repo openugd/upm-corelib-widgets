@@ -29,7 +29,9 @@ namespace OpenUGD.Presenters
     /// <i>Changed in 2.0.0</i> — moved here from <c>com.openugd.corelib</c> (namespace
     /// <c>OpenUGD.Core</c>), keeping its script GUID, and it is now an <see cref="ISignal"/> instead of
     /// declaring a <c>Subscribe</c> method of its own. That method had the same signature as
-    /// <see cref="ISignal.Subscribe"/>, so callers and implementations compile unchanged.
+    /// <see cref="ISignal.Subscribe"/>, so callers and implicit implementations compile unchanged; an
+    /// explicit implementation, <c>void ILocalizationChanged.Subscribe(…)</c>, is now written
+    /// <c>void ISignal.Subscribe(…)</c>.
     /// </para>
     /// </remarks>
     public interface ILocalizationChanged : ISignal

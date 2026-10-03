@@ -153,7 +153,7 @@ on. Also in the package:
 | `ToggleModel`, `SliderIntModel`, `Gesture`, `GestureDelegate` | `OpenUGD.Presenters` | Models and the gesture callback of the presenters above. |
 | `ILocalization`, `ILocalizationChanged` | `OpenUGD.Presenters` | The optional localisation services the text presenters inject. See *Localisation*. |
 | `TMPPresenterIntervalUpdateExtensions` | `OpenUGD.Presenters` | `label.WithIntervalUpdate(coroutines, scope => text[, interval])` sets a `TMPPresenter`'s model on a timer until the presenter closes or the callback disposes its scope. |
-| `UnityEventExtensions` | `OpenUGD` | `unityEvent.Subscribe(lifetime, listener)` for `UnityEvent` through `UnityEvent<T0, T1, T2, T3>`: adds the listener and removes it when the lifetime ends. Every presenter here wires its view with it. |
+| `UnityEventExtensions` | `OpenUGD` | `unityEvent.Subscribe(lifetime, listener)` for `UnityEvent` through `UnityEvent<T0, T1, T2, T3>`: adds the listener and removes it when the lifetime ends. The button, toggle, slider and input field presenters wire their views with it. |
 | `ButtonExtensions` | `OpenUGD` | `button.SubscribeOnClick(lifetime, listener)`, the same for a button no presenter drives. |
 | `HyperlinkText`, `UIGestureDetector` | `OpenUGD.UI` | `MonoBehaviour` components: clickable `<link>` tags in a TextMeshPro label, and taps and swipes on a UI element. |
 
@@ -272,9 +272,11 @@ between `KeyCode` and the Input System's `Key`.
   (*Window > TextMeshPro > Import TMP Essential Resources*).
 - `com.openugd.corelib`, `com.openugd.context`, `com.openugd.lifetime` and `com.openugd.signal` 2.0.0, declared
   in `package.json`. From `com.openugd.corelib` the runtime assembly references two assemblies:
-  `com.openugd.presenters`, for `Presenter`, and `com.openugd.corelib`, for `ICoroutineProvider`. An asmdef
-  of yours that uses these presenters references `com.openugd.corelib.widgets` and
-  `com.openugd.presenters`, and `com.openugd.corelib` too if it uses `ContextPresenterFactory`.
+  `com.openugd.presenters`, for `Presenter`, and `com.openugd.corelib`, for `ICoroutineProvider`. Asmdef
+  references are not transitive, so an asmdef of yours that uses these presenters references
+  `com.openugd.corelib.widgets` and `com.openugd.presenters`; also `com.openugd.lifetime` and
+  `com.openugd.signal` to pass a `Lifetime` or subscribe to a signal, and `com.openugd.corelib` if it uses
+  `ContextPresenterFactory`.
 
 ## Licence
 

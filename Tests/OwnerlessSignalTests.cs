@@ -9,7 +9,7 @@ namespace OpenUGD.Widgets.Tests
 {
     // The signal behind UIGestureDetector's five signals: no Lifetime of its own, otherwise Signal's semantics.
     // The detector must accept subscriptions before it is ever active, and a detector that is never activated gets
-    // no OnDestroy, so nothing may root it but its subscribers (audit WG-10). Plain C#: runs without the engine.
+    // no OnDestroy, so nothing may root it but its subscribers. Plain C#: runs without the engine.
     [TestFixture]
     public class OwnerlessSignalTests
     {

@@ -100,3 +100,10 @@ the README's "Upgrading to 2.0" section walks through them with before and after
   wait per tick.
 - `WithIntervalUpdate` left its scope behind when the coroutine could not be started.
 - A missing `Resources` prefab failed inside `Instantiate`; it throws `InvalidOperationException` naming the path.
+
+## Earlier versions
+
+0.1.0, 0.1.1, 0.1.2, 0.1.3, 0.3.0, 0.4.0 and 0.5.0 were released without changelog entries. Each has a git tag, and
+OpenUPM still serves them; they declare Unity 2021.3 as their minimum.
+
+[2.0.0]: https://github.com/openugd/upm-corelib-widgets/compare/0.5.0...2.0.0

@@ -8,10 +8,10 @@ using UnityEngine.UI;
 
 namespace OpenUGD.Widgets.Tests
 {
-    // One localisation design for every text presenter (audit WG-7): TextModelPresenter<TView> owns the injected
-    // services, the subscription to language changes and the render; the three text presenters only say where the
-    // text goes. A presenter of a plain C# view uses the same base, so the whole design runs here without the
-    // engine, through the real ContextPresenterFactory.
+    // One localisation design for every text presenter: TextModelPresenter<TView> owns the injected services, the
+    // subscription to language changes and the render; the three text presenters only say where the text goes. A
+    // presenter of a plain C# view uses the same base, so the whole design runs here without the engine, through
+    // the real ContextPresenterFactory.
     [TestFixture]
     public class TextModelPresenterTests
     {

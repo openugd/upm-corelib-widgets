@@ -4,8 +4,9 @@ using UnityEngine;
 namespace OpenUGD.UI
 {
     // The gesture rules of UIGestureDetector: pointer positions in, at most one gesture out per call. No engine
-    // calls (the caller passes the threshold in pixels), so level 1 tests every rule. One pointer at a time: a press
-    // restarts the gesture and makes its pointer the one followed; moves and releases of other pointers are ignored.
+    // calls (the caller passes the threshold in pixels), so the .NET test run in openugd/upm-tools (level 1) tests
+    // every rule. One pointer at a time: a press restarts the gesture and makes its pointer the one followed; moves
+    // and releases of other pointers are ignored.
     //
     // In screen pixels, y up as in PointerEventData.position:
     // - a swipe is a movement whose dominant axis exceeds the threshold, in the direction of travel;

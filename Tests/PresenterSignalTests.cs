@@ -2,10 +2,13 @@ using System;
 using NUnit.Framework;
 using OpenUGD.Presenters;
 
+// One assertion message starts with the tag of the 0.5.0 defect it pins:
+//   WG-8  how the input presenters render the model and report changes
+
 namespace OpenUGD.Widgets.Tests
 {
-    // Decision 8: the presenters expose their events as ISignal properties, created on first read and scoped to
-    // the presenter's Lifetime, instead of hand-written Subscribe methods. What can be checked without a view.
+    // The presenters expose their events as ISignal properties, created on first read and scoped to the
+    // presenter's Lifetime, instead of hand-written Subscribe methods. What can be checked without a view.
     [TestFixture]
     public class PresenterSignalTests : PresenterFixture
     {

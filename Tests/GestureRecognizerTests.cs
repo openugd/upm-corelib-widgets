@@ -8,9 +8,8 @@ using UnityEngine.EventSystems;
 
 namespace OpenUGD.Widgets.Tests
 {
-    // The gesture rules behind UIGestureDetector (audit WG-9), which make no engine call, plus the shape of the
-    // component as reflection sees it (WG-10). The component itself, driven through its pointer handlers, is in
-    // GestureDetectorTests.
+    // The gesture rules behind UIGestureDetector, which make no engine call, plus the shape of the component as
+    // reflection sees it. The component itself, driven through its pointer handlers, is in GestureDetectorTests.
     [TestFixture]
     public class GestureRecognizerTests
     {
@@ -32,7 +31,7 @@ namespace OpenUGD.Widgets.Tests
         public void ASwipe_IsNamedAfterItsDirectionOfTravel(float dx, float dy, Gesture expected)
         {
             // y counts upwards in PointerEventData.position, so a movement towards the top of the screen is Up.
-            // WG-9: Up and Down used to be swapped.
+            // 0.5.0 had Up and Down swapped.
             _recognizer.Press(new Vector2(500, 500));
 
             Assert.AreEqual(expected, _recognizer.Move(new Vector2(500 + dx, 500 + dy), Threshold, false));
@@ -63,7 +62,7 @@ namespace OpenUGD.Widgets.Tests
         [Test]
         public void APressThatSwiped_IsNotAlsoATap()
         {
-            // WG-9: firing a swipe moved the origin to where it fired, so returning there and releasing was a tap.
+            // In 0.5.0, a swipe moved the origin to where it fired, so returning there and releasing was a tap.
             _recognizer.Press(Vector2.zero);
             Assert.AreEqual(Gesture.Right, _recognizer.Move(new Vector2(150, 0), Threshold, false));
 
@@ -117,7 +116,7 @@ namespace OpenUGD.Widgets.Tests
         [Test]
         public void SwipeOnRelease_ReportsNothingWhileDown_ThenJudgesTheReleasePosition()
         {
-            // WG-9: with detectSwipeOnlyAfterRelease ticked, no swipe was ever reported.
+            // In 0.5.0, with detectSwipeOnlyAfterRelease ticked, no swipe was ever reported.
             _recognizer.Press(Vector2.zero);
 
             Assert.IsNull(_recognizer.Move(new Vector2(0, -300), Threshold, true));
@@ -179,7 +178,7 @@ namespace OpenUGD.Widgets.Tests
             Assert.IsNull(_recognizer.Move(new Vector2(0, 500), Threshold, false), "a hover after the release");
         }
 
-        // --- one pointer at a time (review of WG-9) -----------------------------------------------------------
+        // --- one pointer at a time ----------------------------------------------------------------------------
 
         [Test]
         public void AnotherPointersMovesAndReleases_AreIgnored()
@@ -205,13 +204,13 @@ namespace OpenUGD.Widgets.Tests
             Assert.AreEqual(Gesture.Up, _recognizer.Move(new Vector2(500, 300), Threshold, false, 2));
         }
 
-        // --- the component, by reflection (WG-10) ------------------------------------------------------------
+        // --- the component, by reflection --------------------------------------------------------------------
 
         [Test]
         public void TheDetector_OwnsNoLifetime()
         {
-            // WG-10: its signals hung off a scope nested in Lifetime.Eternal and ended in OnDestroy, which Unity
-            // never sends to an object that was never active.
+            // In 0.5.0, its signals hung off a scope nested in Lifetime.Eternal and ended in OnDestroy, which
+            // Unity never sends to an object that was never active.
             var fields = typeof(UIGestureDetector).GetFields(BindingFlags.Instance | BindingFlags.Public |
                                                              BindingFlags.NonPublic);
 

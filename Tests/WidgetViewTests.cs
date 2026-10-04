@@ -7,11 +7,15 @@ using UnityEngine;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
 
+// Two assertion messages start with the tag of the 0.5.0 defect they pin:
+//   WG-6  a text with arguments showed its raw pattern when no ILocalization was registered
+//   WG-8  how the input presenters render the model and report changes
+
 namespace OpenUGD.Widgets.Tests
 {
     // The presenters against real uGUI components: rendering, the no-echo rule, and listeners that follow the
-    // view (audit WG-2, WG-4, WG-5, WG-8; the gesture presenter, WG-3, is in GestureDetectorTests). Components
-    // live on inactive GameObjects, so no Unity message runs and nothing but the presenter touches them.
+    // view (the gesture presenter is in GestureDetectorTests). Components live on inactive GameObjects, so no
+    // Unity message runs and nothing but the presenter touches them.
     [TestFixture]
     [Category("RequiresUnity")]
     public class WidgetViewTests : PresenterFixture
@@ -29,7 +33,7 @@ namespace OpenUGD.Widgets.Tests
             _objects.Clear();
         }
 
-        // --- P0-5: the helpers that threw on every non-null view -------------------------------------------
+        // --- a helper given a view renders the model into it -----------------------------------------------
 
         [Test]
         public void AddToggle_WithAView_RendersTheModel()
@@ -76,7 +80,7 @@ namespace OpenUGD.Widgets.Tests
             Assert.AreEqual(1, slid);
         }
 
-        // --- WG-8: rendering never echoes as a change ------------------------------------------------------
+        // --- rendering never echoes as a change ------------------------------------------------------------
 
         [Test]
         public void TogglePresenter_RenderIsSilent_UserChangesAreReported()
@@ -183,7 +187,7 @@ namespace OpenUGD.Widgets.Tests
             Assert.AreEqual(12, second.characterLimit);
         }
 
-        // --- WG-4: listeners follow the view -----------------------------------------------------------------
+        // --- listeners follow the view -----------------------------------------------------------------------
 
         [Test]
         public void ButtonPresenter_ModelThenSignal_OncePerClick()

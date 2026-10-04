@@ -1,5 +1,7 @@
 # CoreLib uGUI Presenters
 
+[![OpenUPM](https://img.shields.io/npm/v/com.openugd.corelib.widgets?label=openupm&registry_uri=https://package.openupm.com)](https://openupm.com/packages/com.openugd.corelib.widgets/) [![Tests](https://github.com/openugd/upm-tools/actions/workflows/ci.yml/badge.svg)](https://github.com/openugd/upm-tools/actions/workflows/ci.yml)
+
 `com.openugd.corelib.widgets` binds Unity's uGUI controls (`Button`, `Toggle`, `Slider`, `Text`, `Image`,
 `RawImage`, `TMP_Text`, `TMP_InputField`) to models through small presenters that never leave a listener behind.
 Use it when you compose screens with the OpenUGD presenter tree from
@@ -11,7 +13,7 @@ renders its model without ever reporting the render as a change, and reports wha
 lifetime-scoped signal. The package also has a tap-and-swipe detector, clickable TextMeshPro links, a presenter
 that drives any model from a timer, and optional localisation for every text presenter.
 
-> **The package ID is unchanged.** `com.openugd.corelib.widgets` names what the presenters bind to, Unity's
+> **Why the ID says widgets.** `com.openugd.corelib.widgets` names what the presenters bind to, Unity's
 > widgets; the types are named for what they are, presenters.
 
 ## Install
@@ -133,6 +135,12 @@ public sealed class SettingsScreen : ContextBehaviour
     }
 }
 ```
+
+`Lifetime` comes from [`com.openugd.lifetime`](https://github.com/openugd/upm-lifetime#readme): a scope you
+register clean-up on with `AddAction`. When it ends, the clean-up runs once, in reverse order of registration, and
+every scope made from it with `DefineNested` ends with it. The signals come from
+[`com.openugd.signal`](https://github.com/openugd/upm-signal#readme): every `Subscribe` takes the subscriber's
+lifetime, so a handler is removed when the subscriber or the signal's owner ends, with no unsubscribe call.
 
 ## Concepts
 
@@ -401,15 +409,22 @@ Then open *Window > General > Test Runner*, choose *EditMode* and run `com.openu
 project needs the Test Framework package (`com.unity.test-framework`), which new Unity 6 projects include. The
 tests marked `[Category("RequiresUnity")]` drive real uGUI components, `UIGestureDetector` and `HyperlinkText`;
 the rest cover the helpers, the signals, the text and localisation rules, the timer and the gesture rules, and also
-run on .NET without the editor.
+run on .NET without the editor: `level1.sh` in [openugd/upm-tools](https://github.com/openugd/upm-tools) builds
+them as a .NET test project and leaves out the `RequiresUnity` ones.
+
+The checks also run in public CI: [openugd/upm-tools](https://github.com/openugd/upm-tools/actions/workflows/ci.yml)
+compiles this package, its samples and the complete examples in this README (those that declare a type) against
+Unity 6000.0's assemblies and runs its engine-free tests on every change there and every Monday. The tests that
+need the editor (category `RequiresUnity`) run in a real Unity 6000.0.41f1 editor before each release.
 
 ## Upgrading to 2.0
 
-This section is for users of `com.openugd.corelib.widgets` 0.5.0. Version 2.0.0 requires Unity 6000.0 or newer
-and the 2.0 versions of the OpenUGD family, and is licensed under Apache-2.0 (0.5.0 shipped a modified MIT text).
-`com.openugd.corelib` 2.0 changes the presenter base class itself, and `com.openugd.context` replaces
-`com.openugd.dependency.injection`; their READMEs cover those changes. There are no `[Obsolete]` forwarding types:
-the base class, the lifecycle hooks and the DI layer change together, so old code does not compile either way.
+This section is for users of `com.openugd.corelib.widgets` 0.5.0; the package ID is unchanged. Version 2.0.0
+requires Unity 6000.0 or newer and the 2.0 versions of the OpenUGD family, and is licensed under Apache-2.0 (0.5.0
+shipped a modified MIT text). `com.openugd.corelib` 2.0 changes the presenter base class itself, and
+`com.openugd.context` replaces `com.openugd.dependency.injection`; their READMEs cover those changes. There are no
+`[Obsolete]` forwarding types: the base class, the lifecycle hooks and the DI layer change together, so old code
+does not compile either way.
 
 | What | 0.5.0 | 2.0.0 | What to do |
 | --- | --- | --- | --- |
@@ -585,11 +600,44 @@ with the label on the same GameObject.
 - **`InputFieldPresenter.InputValue`** with no live view throws `InvalidOperationException` instead of
   `NullReferenceException`.
 
+## The OpenUGD family
+
+Six packages, versioned together as 2.x and published on [OpenUPM](https://openupm.com/packages/?q=com.openugd)
+under the `com.openugd` scope. Installing one brings the ones it depends on.
+
+| Package | What it gives you | Depends on |
+| --- | --- | --- |
+| [Lifetime](https://github.com/openugd/upm-lifetime#readme) — `com.openugd.lifetime` | Scopes with deterministic, reverse-order clean-up | — |
+| [Signal](https://github.com/openugd/upm-signal#readme) — `com.openugd.signal` | Typed events whose subscriptions end with a lifetime | Lifetime |
+| [Context](https://github.com/openugd/upm-context#readme) — `com.openugd.context` | Dependency injection that validates the whole graph before it builds anything | Lifetime |
+| [CoreLib](https://github.com/openugd/upm-corelib#readme) — `com.openugd.corelib` | The Unity boundary: `ContextBehaviour`, presenters, commands, logging | Lifetime, Signal, Context |
+| [CoreLib uGUI Presenters](https://github.com/openugd/upm-corelib-widgets#readme) — `com.openugd.corelib.widgets` | Presenters that bind uGUI and TextMesh Pro controls to a model | CoreLib, Context, Signal, Lifetime, uGUI |
+| [uGUI Components](https://github.com/openugd/upm-ui#readme) — `com.openugd.ui` | Shader-free uGUI components: flip, gradient, invisible hit area | uGUI |
+
+Start with Lifetime and Signal for plain C# scopes and events, add Context for dependency injection, and CoreLib to
+run it inside a Unity scene. [`com.openugd.configuration`](https://github.com/openugd/upm-configuration), a
+string-keyed configuration for Context, is 0.x and not on OpenUPM yet. Other `com.openugd.*` packages on OpenUPM
+predate 2.0 and are not part of this family.
+
 ## Versioning
 
 The OpenUGD packages share a major version: every package of the family is 2.x. Minor and patch versions move
 independently. Each 2.x package works with the 2.x versions of its dependencies at or above the minimums declared
 in its `package.json`.
+
+The changes in each version are listed in [CHANGELOG.md](CHANGELOG.md).
+
+## Contributing
+
+Report a bug or an idea at
+[github.com/openugd/upm-corelib-widgets/issues](https://github.com/openugd/upm-corelib-widgets/issues): include
+the Unity version, the package version and, for an exception, the full message. To work on the package, clone it,
+reference the clone from a Unity 6 project
+(`"com.openugd.corelib.widgets": "file:../path/to/upm-corelib-widgets"` in `Packages/manifest.json`), add
+`com.openugd.corelib.widgets` to `testables`, and run its tests in the Test Runner. The project also needs
+`com.openugd.corelib`, `com.openugd.context`, `com.openugd.signal` and `com.openugd.lifetime`: keep the scoped
+registry from [Install](#scoped-registry), or reference clones of them the same way. The checks CI runs are scripts
+in [openugd/upm-tools](https://github.com/openugd/upm-tools); its README shows how to run them locally.
 
 ## Licence
 

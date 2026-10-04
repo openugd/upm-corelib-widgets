@@ -30,7 +30,7 @@ namespace OpenUGD.Widgets.Tests
         [Test]
         public void WithoutLocalization_ArgumentsAreSubstituted()
         {
-            // Audit WG-6: AddText(label, "Score: {0}", 100) used to show "Score: {0}" when no localisation was
+            // In 0.5.0, AddText(label, "Score: {0}", 100) showed "Score: {0}" when no localisation was
             // registered.
             var model = new TextModel { Format = "Score: {0} {1}", Keys = new object[] { 100, "pts" } };
 
@@ -65,7 +65,7 @@ namespace OpenUGD.Widgets.Tests
         [Test]
         public void Resolve_NeverWritesTheArgumentArray()
         {
-            // Audit WG-7: the hyperlink helpers used to translate into the caller's own array.
+            // In 0.5.0, the hyperlink helpers translated into the caller's own array.
             var localization = new MapLocalization { ["label"] = "{0}!", ["points"] = "Points" };
             var keys = new object[] { "points" };
             var model = new TextModel { Format = "label", Keys = keys };

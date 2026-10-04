@@ -10,10 +10,10 @@ using Object = UnityEngine.Object;
 
 namespace OpenUGD.Widgets.Tests
 {
-    // HyperlinkText's click path (audit WG-11): the hit-test camera, the order of the events, the veto, and the
-    // label it fills in for itself. TMP finds a link only in generated text, which needs a font asset the test
-    // project does not have, so RecordingHyperlinkText stands in for the hit test and for Application.OpenURL;
-    // everything around them is the real component. Components live on inactive GameObjects.
+    // HyperlinkText's click path: the hit-test camera, the order of the events, the veto, and the label it fills
+    // in for itself. TMP finds a link only in generated text, which needs a font asset the test project does not
+    // have, so RecordingHyperlinkText stands in for the hit test and for Application.OpenURL; everything around
+    // them is the real component. Components live on inactive GameObjects.
     [TestFixture]
     [Category("RequiresUnity")]
     public class HyperlinkTextTests : PresenterFixture
@@ -51,7 +51,7 @@ namespace OpenUGD.Widgets.Tests
         [Test]
         public void TheHitTest_UsesTheCameraThePressWasRaycastWith()
         {
-            // WG-11: the hit test passed no camera, which is wrong for a camera-space or world-space canvas.
+            // In 0.5.0, the hit test passed no camera, which is wrong for a camera-space or world-space canvas.
             var camera = NewObject("camera").AddComponent<Camera>();
             var raycaster = NewObject("canvas").AddComponent<GraphicRaycaster>();
             var canvas = raycaster.GetComponent<Canvas>();
@@ -86,7 +86,7 @@ namespace OpenUGD.Widgets.Tests
         [Test]
         public void AHandlerThatTakesTheClick_KeepsTheLinkFromBeingOpened()
         {
-            // WG-11: every link id was opened before anything could see it.
+            // In 0.5.0, every link id was opened before anything could see it.
             var seenHandled = false;
             _link.LinkClicked += click => click.Handled = true;
             _link.LinkClicked += click => seenHandled = click.Handled;
@@ -124,7 +124,7 @@ namespace OpenUGD.Widgets.Tests
         [Test]
         public void AnEmptyText_IsFilledInFromTheGameObject_OnClick()
         {
-            // WG-11: an unassigned Text threw NullReferenceException on the first click.
+            // In 0.5.0, an unassigned Text threw NullReferenceException on the first click.
             _link.Text = null;
 
             Click(new PointerEventData(null));

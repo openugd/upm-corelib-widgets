@@ -8,12 +8,18 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
 
+// A few assertion messages start with the tag of the 0.5.0 defect they pin:
+//   WG-3  the gesture presenter: one delegate call per gesture, and none from a detector it no longer has
+//   WG-9  the gesture rules: Up and Down were swapped, a swipe could end in a tap, and with
+//         detectSwipeOnlyAfterRelease no swipe was reported at all
+
 namespace OpenUGD.Widgets.Tests
 {
-    // UIGestureDetector driven through its pointer handlers, as the EventSystem drives it (audit WG-9, WG-10). The
-    // detector lives on an inactive GameObject, so no Unity message runs: what it does before it is ever active is
-    // exactly what is under test for WG-10. Distances are far beyond any threshold Screen.height can give, and a
-    // tap is a press released where it went down, so the tests do not depend on the batchmode screen size.
+    // UIGestureDetector driven through its pointer handlers, as the EventSystem drives it. The detector lives on
+    // an inactive GameObject, so no Unity message runs: that it accepts subscriptions before it is ever active,
+    // and leaves nothing behind if it never is, is part of what is under test. Distances are far beyond any
+    // threshold Screen.height can give, and a tap is a press released where it went down, so the tests do not
+    // depend on the batchmode screen size.
     [TestFixture]
     [Category("RequiresUnity")]
     public class GestureDetectorTests : PresenterFixture

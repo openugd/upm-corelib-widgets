@@ -9,8 +9,8 @@ using UnityEngine;
 namespace OpenUGD.Widgets.Tests
 {
     // WithIntervalUpdate takes its coroutine runner as a parameter now that Presenter.Context is gone, and drives
-    // any presenter with a model (audit WG-13). A fake runner that steps the coroutine by hand makes the timer
-    // observable without the engine.
+    // any presenter with a model. A fake runner that steps the coroutine by hand makes the timer observable
+    // without the engine.
     [TestFixture]
     public class IntervalUpdateTests : PresenterFixture
     {
@@ -115,7 +115,7 @@ namespace OpenUGD.Widgets.Tests
         [Test]
         public void ARenderThatThrowsOnTheFirstUpdate_StopsTheTimer_AndTheExceptionReachesTheCaller()
         {
-            // The documented exceptions include the render of the first model, not only the callback (review).
+            // The documented exceptions include the render of the first model, not only the callback.
             var runner = new SteppingRunner();
             var presenter = Root.AddPresenter(new FailingRender());
             presenter.SetView(new Board());
@@ -159,12 +159,12 @@ namespace OpenUGD.Widgets.Tests
             Assert.AreEqual(1, runner.Stopped);
         }
 
-        // --- WG-13, UH-23: one realtime wait per timer --------------------------------------------------------
+        // --- one realtime wait per timer ----------------------------------------------------------------------
 
         [Test]
         public void EveryTick_YieldsTheSameRealtimeWait()
         {
-            // WG-13/UH-23: each tick yielded a new WaitForSeconds - an allocation per tick, in scaled time, so the
+            // In 0.5.0, each tick yielded a new WaitForSeconds - an allocation per tick, in scaled time, so the
             // label froze while Time.timeScale was 0.
             var runner = new SteppingRunner();
             var label = Root.AddText((TMPro.TMP_Text)null, "");
@@ -214,7 +214,7 @@ namespace OpenUGD.Widgets.Tests
             Assert.IsFalse(wait.keepWaiting);
         }
 
-        // --- WG-13: any presenter with a model ----------------------------------------------------------------
+        // --- any presenter with a model -----------------------------------------------------------------------
 
         [Test]
         public void AnyPresenterWithAModel_CanBeDriven()
